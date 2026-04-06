@@ -19,8 +19,7 @@ class KeepAliveForegroundService : Service() {
         val app = application as MainApplication
         when (intent?.action) {
             ACTION_START_SERVICE -> {
-                app.container.notificationCenter.showPersistent(app.container.settingsRepository.stats().value)
-                app.container.logRepository.append(com.monkeycode.ctyunkeepalive.core.LogLevel.INFO, "前台保活服务已启动，等待手动测试或定时任务")
+                app.container.keepAliveEngine.startBackgroundService()
             }
             ACTION_RUN_SCHEDULED -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
             ACTION_RUN_MANUAL -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)

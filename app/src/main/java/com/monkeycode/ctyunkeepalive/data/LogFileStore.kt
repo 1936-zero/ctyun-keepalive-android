@@ -160,7 +160,7 @@ class LogFileStore(
     private fun clearBackupFiles() {
         backupDirectory().listFiles()?.forEach { file ->
             if (file.isFile && file.name.endsWith(".log")) {
-                file.writeText("", Charsets.UTF_8)
+                file.delete()
             }
         }
     }
@@ -168,7 +168,7 @@ class LogFileStore(
     private fun clearLegacyFiles() {
         legacyDirectory().listFiles()?.forEach { file ->
             if (file.isFile && file.name.endsWith(".log")) {
-                file.writeText("", Charsets.UTF_8)
+                file.delete()
             }
         }
     }

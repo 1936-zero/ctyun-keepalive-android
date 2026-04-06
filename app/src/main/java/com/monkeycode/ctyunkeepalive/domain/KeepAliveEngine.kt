@@ -94,6 +94,23 @@ class KeepAliveEngine(
         scheduleIfNeeded(settingsRepository.settings().value)
     }
 
+    fun startBackgroundService() {
+        val settings = settingsRepository.settings().value
+        val nextRun = if (settings.cronEnabled) System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L else 0L
+        updateStats(
+            settingsRepository.stats().value.copy(
+                running = false,
+                currentProgress = if (settings.cronEnabled) "后台待命" else "后台服务已启动",
+                nextRunAt = nextRun,
+            )
+        )
+        scheduleIfNeeded(settings)
+        logRepository.append(
+            LogLevel.INFO,
+            if (settings.cronEnabled) "前台保活服务已启动，等待手动测试或定时任务" else "前台保活服务已启动，但定时任务已关闭"
+        )
+    }
+
     fun startNow(trigger: RunTrigger = RunTrigger.SCHEDULED) {
         if (runningJob?.isActive == true) {
             if (trigger == RunTrigger.MANUAL) {
@@ -144,8 +161,10 @@ class KeepAliveEngine(
     }
 
     fun stop() {
+        val stats = settingsRepository.stats().value
+        if (!stats.running && stats.currentProgress == "已停止") return
         runningJob?.cancel()
-        updateStats(settingsRepository.stats().value.copy(running = false, currentProgress = "已停止"))
+        updateStats(stats.copy(running = false, currentProgress = "已停止"))
         logRepository.append(LogLevel.WARNING, "保活任务已停止")
     }
 
