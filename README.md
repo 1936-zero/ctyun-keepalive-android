@@ -4,6 +4,28 @@
 
 其中 `ctyun-phone-keepalive.js` 原始脚本来源于妖火 `@YH` 大佬，本项目是在该脚本逻辑基础上的 Android 原生实现与工程化整理。
 
+## deviceCode 获取方法
+
+如果某些账号在 APK 中登录后仍然卡在鉴权或设备列表阶段，可以先由用户手动获取 `deviceCode`，再填入 APK 的账号设置中。
+
+操作步骤：
+
+1. 用电脑上的 Edge 浏览器或 Chrome 浏览器打开 `pm.ctyun.cn`
+2. 登录账号，并先完成短信验证码验证
+3. 按 `F12` 打开开发者工具
+4. 刷新页面
+5. 在 `Network` / `Headers` 里找到 `getServData` 请求
+6. 在请求头中找到 `ctg-devicecode`
+7. 复制这个值，通常格式为 `web_phone_xxx`
+8. 打开 APK，在账号设置里启用“自定义 deviceCode”，把复制到的值填进去<img width="1782" height="985" alt="1d06bd040f8a8765dbc6ea637aede3fa" src="https://github.com/user-attachments/assets/105b544c-daef-49bd-9d5a-a4ef9d7d571b" />
+![Uploading 074be9777bdde91a37e3eeeef11ff23e.jpg…]()
+
+
+说明：
+
+- `deviceCode` 一般不要在不同账号之间混用
+- 如果服务端风控状态变化，可能需要重新抓取一次最新的 `deviceCode`
+
 ## 当前实现
 
 - Kotlin + Jetpack Compose + MVVM 项目结构
@@ -42,25 +64,7 @@ app/src/main/python/
 
 详见 `docs/usage.md`。
 
-## deviceCode 获取方法
 
-如果某些账号在 APK 中登录后仍然卡在鉴权或设备列表阶段，可以先由用户手动获取 `deviceCode`，再填入 APK 的账号设置中。
-
-操作步骤：
-
-1. 用电脑上的 Edge 浏览器或 Chrome 浏览器打开 `pm.ctyun.cn`
-2. 登录账号，并先完成短信验证码验证
-3. 按 `F12` 打开开发者工具
-4. 刷新页面
-5. 在 `Network` / `Headers` 里找到 `getServData` 请求
-6. 在请求头中找到 `ctg-devicecode`
-7. 复制这个值，通常格式为 `web_phone_xxx`
-8. 打开 APK，在账号设置里启用“自定义 deviceCode”，把复制到的值填进去
-
-说明：
-
-- `deviceCode` 一般不要在不同账号之间混用
-- 如果服务端风控状态变化，可能需要重新抓取一次最新的 `deviceCode`
 
 ## Release 交付
 
