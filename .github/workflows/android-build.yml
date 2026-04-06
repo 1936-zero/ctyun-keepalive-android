@@ -57,16 +57,22 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Prepare release keystore
-        if: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
         shell: bash
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release-keystore.jks
-          cat > keystore.properties <<EOF
-          storeFile=release-keystore.jks
-          storePassword=${{ secrets.RELEASE_STORE_PASSWORD }}
-          keyAlias=${{ secrets.RELEASE_KEY_ALIAS }}
-          keyPassword=${{ secrets.RELEASE_KEY_PASSWORD }}
-          EOF
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > release-keystore.jks
+            cat > keystore.properties <<EOF
+            storeFile=release-keystore.jks
+            storePassword=$RELEASE_STORE_PASSWORD
+            keyAlias=$RELEASE_KEY_ALIAS
+            keyPassword=$RELEASE_KEY_PASSWORD
+            EOF
+          fi
 
       - name: Build Release APK
         run: ./gradlew assembleRelease
