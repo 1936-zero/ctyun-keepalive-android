@@ -1,8 +1,11 @@
 package com.monkeycode.ctyunkeepalive.ui
 
+import android.Manifest
 import android.content.Intent
 import android.content.Context
+import android.os.Build
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -99,8 +103,16 @@ fun CtyunApp(
     }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        val permissions = viewModel.requiredLogPermissions().toTypedArray()
-        if (permissions.isNotEmpty() && !viewModel.hasLogPermissions(context)) {
+        val permissions = buildList {
+            addAll(viewModel.requiredLogPermissions())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }.distinct().toTypedArray()
+        val denied = permissions.any { permission ->
+            ContextCompat.checkSelfPermission(context, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (permissions.isNotEmpty() && denied) {
             permissionLauncher.launch(permissions)
         }
     }
@@ -197,13 +209,13 @@ private fun HomeScreen(
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("控制区", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = { viewModel.startNow(context) }, modifier = Modifier.weight(1f)) {
+                        Button(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(Modifier.size(6.dp))
-                            Text("启动保活")
+                            Text("启动后台保活")
                         }
                         Button(
-                            onClick = { viewModel.runImmediateTest() },
+                            onClick = { viewModel.runImmediateTest(context) },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A00)),
                         ) {
@@ -225,6 +237,7 @@ private fun HomeScreen(
                         }
                     }
                     Text("日志已保存到: ${uiState.logDirectoryPath}", color = MaterialTheme.colorScheme.primary)
+                    Text("说明: “立即测试保活”只执行一次；“启动后台保活”只启动前台服务和定时任务。", style = MaterialTheme.typography.bodySmall)
                     if (!dashboard.rootGranted) {
                         Text("提示: 当前 ROOT 未授权，系统级保活能力不会生效。", color = MaterialTheme.colorScheme.error)
                     }
@@ -380,7 +393,11 @@ private fun AccountDialog(
 private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: PaddingValues, viewModel: MainViewModel) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val listState = rememberLazyListState()
     val allLogs = remember(logs) { logs.joinToString("\n") { "${formatTime(it.timestamp)} ${it.message}" } }
+    androidx.compose.runtime.LaunchedEffect(logs.size) {
+        if (logs.isNotEmpty()) listState.animateScrollToItem(logs.lastIndex)
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -426,6 +443,7 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
         Text("当前日志目录: $logDirectoryPath", style = MaterialTheme.typography.bodySmall)
         Card(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0xFF101418))
@@ -527,7 +545,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
                 Text("服务说明: 前台服务 + AlarmManager + ROOT 守护进程")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重新检测权限") }
-                    OutlinedButton(onClick = { viewModel.startNow(context) }, modifier = Modifier.weight(1f)) { Text("重启保活服务") }
+                    OutlinedButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) { Text("重启前台服务") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = { viewModel.clearLogs() }, modifier = Modifier.weight(1f)) { Text("清理缓存日志") }
@@ -540,7 +558,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
                 Text("关于应用", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("版本: 1.0.0")
                 Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr")
-                Text("运行方式: 安装后授权 ROOT，添加账号，点击启动即可")
+                Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试")
             }
         }
         OutlinedButton(onClick = { confirmExit = true }, modifier = Modifier.fillMaxWidth()) { Text("退出登录并清空所有本地数据") }

@@ -42,16 +42,16 @@ class MainViewModel(
         container.keepAliveEngine.bootstrap()
     }
 
-    fun startNow(context: android.content.Context) {
-        KeepAliveForegroundService.start(context)
+    fun startService(context: android.content.Context) {
+        KeepAliveForegroundService.startServiceOnly(context)
     }
 
     fun stop(context: android.content.Context) {
         KeepAliveForegroundService.start(context, KeepAliveForegroundService.ACTION_STOP)
     }
 
-    fun runImmediateTest() {
-        container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)
+    fun runImmediateTest(context: android.content.Context) {
+        KeepAliveForegroundService.runManual(context)
     }
 
     fun requiredLogPermissions(): List<String> = container.logFileStore.requiredPermissions()

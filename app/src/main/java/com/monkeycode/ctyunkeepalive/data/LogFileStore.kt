@@ -76,8 +76,9 @@ class LogFileStore(
 
     private fun appendInternal(entry: LogEntry) {
         val text = buildLogLine(entry)
+        appendWithBackupFile(text, entry.timestamp)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            appendWithMediaStore(text, entry.timestamp)
+            runCatching { appendWithMediaStore(text, entry.timestamp) }
         } else {
             appendWithLegacyFile(text, entry.timestamp)
         }
@@ -119,6 +120,11 @@ class LogFileStore(
         File(directory, dailyFileName(timestamp)).appendText(text, Charsets.UTF_8)
     }
 
+    private fun appendWithBackupFile(text: String, timestamp: Long) {
+        val directory = backupDirectory().apply { mkdirs() }
+        File(directory, dailyFileName(timestamp)).appendText(text, Charsets.UTF_8)
+    }
+
     private fun buildLogLine(entry: LogEntry): String {
         return "${dateTimeFormatter.format(Date(entry.timestamp))} [${entry.level.name}] ${entry.message}\n"
     }
@@ -129,7 +135,7 @@ class LogFileStore(
 
     private fun buildDisplayPath(): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            "内部存储/Documents/$folderName"
+            "内部存储/Documents/$folderName | 备份: ${backupDirectory().absolutePath}"
         } else {
             legacyDirectory().absolutePath
         }
@@ -144,6 +150,10 @@ class LogFileStore(
 
     private fun legacyDirectory(): File {
         return File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), folderName)
+    }
+
+    private fun backupDirectory(): File {
+        return File(appContext.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), folderName)
     }
 
     companion object {

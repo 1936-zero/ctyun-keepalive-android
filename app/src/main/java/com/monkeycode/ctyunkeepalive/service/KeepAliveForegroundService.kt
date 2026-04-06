@@ -18,8 +18,17 @@ class KeepAliveForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val app = application as MainApplication
         when (intent?.action) {
-            ACTION_START -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
-            ACTION_STOP -> app.container.keepAliveEngine.stop()
+            ACTION_START_SERVICE -> {
+                app.container.notificationCenter.showPersistent(app.container.settingsRepository.stats().value)
+                app.container.logRepository.append(com.monkeycode.ctyunkeepalive.core.LogLevel.INFO, "前台保活服务已启动，等待手动测试或定时任务")
+            }
+            ACTION_RUN_SCHEDULED -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
+            ACTION_RUN_MANUAL -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)
+            ACTION_STOP -> {
+                app.container.keepAliveEngine.stop()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
         return START_STICKY
     }
@@ -27,12 +36,20 @@ class KeepAliveForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        const val ACTION_START = "action_start"
+        const val ACTION_START_SERVICE = "action_start_service"
+        const val ACTION_RUN_SCHEDULED = "action_run_scheduled"
+        const val ACTION_RUN_MANUAL = "action_run_manual"
         const val ACTION_STOP = "action_stop"
 
-        fun start(context: android.content.Context, action: String = ACTION_START) {
+        fun start(context: android.content.Context, action: String = ACTION_START_SERVICE) {
             val intent = Intent(context, KeepAliveForegroundService::class.java).apply { this.action = action }
             ContextCompat.startForegroundService(context, intent)
         }
+
+        fun startServiceOnly(context: android.content.Context) = start(context, ACTION_START_SERVICE)
+
+        fun runScheduled(context: android.content.Context) = start(context, ACTION_RUN_SCHEDULED)
+
+        fun runManual(context: android.content.Context) = start(context, ACTION_RUN_MANUAL)
     }
 }

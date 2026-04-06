@@ -420,23 +420,52 @@ class KeepAliveEngine(
     }
 
     private fun resolveClinkUri(desktopId: String, desktopInfo: JsonObject): String {
-        val hostCandidates = listOf(
+        val lvsHost = listOf(
             desktopInfo.stringOrNull("clinkLvsOutHost"),
             desktopInfo.stringOrNull("clinkIpv6LvsOutHost"),
             desktopInfo.stringOrNull("clinkLvsOutHostBak"),
             desktopInfo.stringOrNull("clinkIpv6LvsOutHostBak"),
-            desktopInfo.stringOrNull("host"),
-        ).mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
-        val portCandidates = listOf(
+        ).firstOrNull { !it.isNullOrBlank() }
+        val lvsPort = listOf(
             desktopInfo.stringOrNull("clinkLvsOutPort"),
             desktopInfo.stringOrNull("clinkPort"),
             desktopInfo.stringOrNull("clinkLvsPort"),
-            desktopInfo.stringOrNull("port"),
-        ).mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
-        if (hostCandidates.isNotEmpty() && portCandidates.isNotEmpty()) {
-            return "wss://${hostCandidates.first()}:${portCandidates.first()}/clinkProxy/$desktopId"
+            "9011",
+        ).firstOrNull { !it.isNullOrBlank() } ?: "9011"
+        if (!lvsHost.isNullOrBlank()) {
+            val (host, port) = splitHostPort(lvsHost, lvsPort)
+            return "wss://${formatHost(host)}:$port/clinkProxy/$desktopId"
         }
+
+        val host = desktopInfo.stringOrNull("host")?.trim().orEmpty()
+        val port = desktopInfo.stringOrNull("port")?.trim().orEmpty()
+        if (host.isNotBlank() && port.isNotBlank()) {
+            return "wss://${formatHost(host)}:$port/clinkProxy/$desktopId"
+        }
+
         return "wss://deskmsgz.ctyun.cn:9011/clinkProxy/$desktopId"
+    }
+
+    private fun splitHostPort(rawHost: String, fallbackPort: String): Pair<String, String> {
+        val value = rawHost.trim()
+        if (value.startsWith("[") && value.contains("]")) {
+            val hostEnd = value.indexOf(']')
+            val host = value.substring(1, hostEnd)
+            val port = value.substring(hostEnd + 1).removePrefix(":").ifBlank { fallbackPort }
+            return host to port
+        }
+        val colonCount = value.count { it == ':' }
+        if (colonCount == 1) {
+            val index = value.lastIndexOf(':')
+            val host = value.substring(0, index)
+            val port = value.substring(index + 1).ifBlank { fallbackPort }
+            return host to port
+        }
+        return value to fallbackPort
+    }
+
+    private fun formatHost(host: String): String {
+        return if (host.contains(':') && !host.startsWith("[")) "[$host]" else host
     }
 
     private fun decodeJwtPayload(token: String): JsonObject? {

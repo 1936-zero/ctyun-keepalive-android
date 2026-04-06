@@ -11,7 +11,7 @@ object AppConfig {
     const val osType = 15
     const val appVersion = "3.2.0"
     const val version = 103020001
-    const val deviceName = "Chrome浏览器"
+    const val deviceName = "手机客户端"
     const val deviceModel = "Windows NT 10.0; Win64; x64"
     const val sysVersion = "Windows NT 10.0; Win64; x64"
     const val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"

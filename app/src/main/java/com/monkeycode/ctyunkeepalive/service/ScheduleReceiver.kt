@@ -7,7 +7,7 @@ import com.monkeycode.ctyunkeepalive.app.MainApplication
 
 class ScheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        KeepAliveForegroundService.start(context)
+        KeepAliveForegroundService.runScheduled(context)
         val app = context.applicationContext as MainApplication
         app.container.scheduler.schedule(context)
     }
