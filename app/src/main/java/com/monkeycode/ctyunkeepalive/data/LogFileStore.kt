@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -42,6 +43,24 @@ class LogFileStore(
                 runCatching { appendInternal(entry) }
             }
         }
+    }
+
+    fun appendBlocking(entry: LogEntry) {
+        runBlocking(Dispatchers.IO) {
+            writeLock.withLock {
+                runCatching { appendInternal(entry) }
+            }
+        }
+    }
+
+    fun readRecentEntries(limit: Int = 200): List<LogEntry> {
+        val file = File(backupDirectory(), dailyFileName(System.currentTimeMillis()))
+        if (!file.exists()) return emptyList()
+        return runCatching {
+            file.readLines(Charsets.UTF_8)
+                .takeLast(limit)
+                .mapNotNull(::parseLogLine)
+        }.getOrDefault(emptyList())
     }
 
     fun requiredPermissions(): List<String> {
@@ -129,6 +148,13 @@ class LogFileStore(
         return "${dateTimeFormatter.format(Date(entry.timestamp))} [${entry.level.name}] ${entry.message}\n"
     }
 
+    private fun parseLogLine(line: String): LogEntry? {
+        val match = logPattern.matchEntire(line.trim()) ?: return null
+        val timestamp = runCatching { dateTimeFormatter.parse(match.groupValues[1])?.time }.getOrNull() ?: System.currentTimeMillis()
+        val level = runCatching { com.monkeycode.ctyunkeepalive.core.LogLevel.valueOf(match.groupValues[2]) }.getOrNull() ?: return null
+        return LogEntry(level = level, message = match.groupValues[3], timestamp = timestamp)
+    }
+
     private fun dailyFileName(timestamp: Long): String {
         return "${fileNameFormatter.format(Date(timestamp))}.log"
     }
@@ -160,5 +186,6 @@ class LogFileStore(
         private const val folderName = "天翼云保活日志"
         private val dateTimeFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
         private val fileNameFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        private val logPattern = Regex("^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) \\[(\\w+)] (.*)$")
     }
 }

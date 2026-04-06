@@ -51,7 +51,7 @@ class MainViewModel(
     }
 
     fun runImmediateTest(context: android.content.Context) {
-        KeepAliveForegroundService.runManual(context)
+        container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)
     }
 
     fun requiredLogPermissions(): List<String> = container.logFileStore.requiredPermissions()
