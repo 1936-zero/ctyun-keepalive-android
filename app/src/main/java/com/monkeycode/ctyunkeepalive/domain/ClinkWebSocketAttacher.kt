@@ -139,11 +139,17 @@ class ClinkWebSocketAttacher(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
-                    scope.launch { onBinary(text.toByteArray()) }
+                    scope.launch {
+                        runCatching { onBinary(text.toByteArray()) }
+                            .onFailure { fail(IllegalStateException("${spec.key} 文本消息处理失败: ${it.message}", it)) }
+                    }
                 }
 
                 override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                    scope.launch { onBinary(bytes.toByteArray()) }
+                    scope.launch {
+                        runCatching { onBinary(bytes.toByteArray()) }
+                            .onFailure { fail(IllegalStateException("${spec.key} 二进制消息处理失败: ${it.message}", it)) }
+                    }
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {

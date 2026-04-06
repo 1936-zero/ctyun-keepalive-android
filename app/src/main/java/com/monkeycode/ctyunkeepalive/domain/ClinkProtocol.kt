@@ -190,9 +190,12 @@ object ClinkProtocol {
         while (offset + 6 <= buffer.size) {
             val type = readUInt16LE(buffer, offset)
             val size = readUInt32LE(buffer, offset + 2)
+            if (size < 0) {
+                throw IllegalArgumentException("非法 Clink 消息长度: $size type=$type offset=$offset buffer=${buffer.size}")
+            }
             val end = offset + 6 + size
-            if (size > buffer.size || end > buffer.size) {
-                return if (messages.isNotEmpty()) messages else emptyList()
+            if (end < offset + 6 || end > buffer.size) {
+                throw IllegalArgumentException("Clink 消息越界: type=$type size=$size offset=$offset end=$end buffer=${buffer.size}")
             }
             messages += ClinkMessage(type = type, size = size, payload = buffer.copyOfRange(offset + 6, end))
             offset = end
