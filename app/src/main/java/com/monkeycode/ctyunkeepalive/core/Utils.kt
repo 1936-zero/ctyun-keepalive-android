@@ -7,6 +7,13 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+data class BatchAccountInput(
+    val username: String,
+    val password: String,
+    val deviceCode: String = "",
+    val useCustomDeviceCode: Boolean = false,
+)
+
 fun maskAccount(account: String): String {
     val value = account.trim()
     return when {
@@ -22,17 +29,20 @@ fun maskAccount(account: String): String {
     }
 }
 
-fun parseBatchAccounts(raw: String): List<AccountCredential> {
+fun parseBatchAccounts(raw: String): List<BatchAccountInput> {
     return raw.split("&")
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .mapIndexed { index, item ->
-            val split = item.indexOf('#')
-            require(split in 1 until item.lastIndex) { "第 ${index + 1} 组账号格式不正确，应为 账号#密码" }
-            AccountCredential(
-                id = UUID.randomUUID().toString(),
-                username = item.substring(0, split).trim(),
-                password = item.substring(split + 1).trim(),
+            val parts = item.split('#').map(String::trim)
+            require(parts.size in 2..3 && parts[0].isNotBlank() && parts[1].isNotBlank()) {
+                "第 ${index + 1} 组账号格式不正确，应为 账号#密码 或 账号#密码#deviceCode"
+            }
+            BatchAccountInput(
+                username = parts[0],
+                password = parts[1],
+                deviceCode = parts.getOrNull(2).orEmpty(),
+                useCustomDeviceCode = !parts.getOrNull(2).isNullOrBlank(),
             )
         }
 }

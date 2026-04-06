@@ -170,7 +170,7 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Version 1.0.9")
+            Text("Version 1.0.10")
             Text("ROOT: ${if (dashboard.rootGranted) "已授权" else "检测中"}")
             Text("Python: ${if (dashboard.pythonReady) "已加载" else "加载中"}")
             Text("OCR: ${if (dashboard.ocrReady) "已初始化" else "初始化中"}")
@@ -298,14 +298,14 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
     var confirmClear by remember { mutableStateOf(false) }
 
     if (addDialog) {
-        AccountDialog(onDismiss = { addDialog = false }) { username, password ->
-            viewModel.addAccount(username, password)
+        AccountDialog(onDismiss = { addDialog = false }) { username, password, deviceCode, useCustomDeviceCode ->
+            viewModel.addAccount(username, password, deviceCode, useCustomDeviceCode)
             addDialog = false
         }
     }
     editing?.let { item ->
-        AccountDialog(item, onDismiss = { editing = null }) { username, password ->
-            viewModel.updateAccount(item.credential.id, username, password)
+        AccountDialog(item, onDismiss = { editing = null }) { username, password, deviceCode, useCustomDeviceCode ->
+            viewModel.updateAccount(item.credential.id, username, password, deviceCode, useCustomDeviceCode)
             editing = null
         }
     }
@@ -339,7 +339,7 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
                     onValueChange = { batchText = it },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
-                    placeholder = { Text("账号#密码&账号#密码") },
+                    placeholder = { Text("账号#密码 或 账号#密码#deviceCode") },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = { if (batchText.isNotBlank()) viewModel.importAccounts(batchText) }, modifier = Modifier.weight(1f)) { Text("一键解析导入") }
@@ -359,7 +359,7 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("DeviceCode: ${item.deviceCode.ifBlank { "未生成" }}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("DeviceCode(${if (item.useCustomDeviceCode) "自定义" else "自动"}): ${item.deviceCode.ifBlank { "未生成" }}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(onClick = { editing = item }, modifier = Modifier.weight(1f)) { Text("编辑") }
                                 OutlinedButton(onClick = { viewModel.removeAccount(item.credential.id) }, modifier = Modifier.weight(1f)) { Text("删除") }
@@ -376,10 +376,12 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
 private fun AccountDialog(
     account: StoredAccount? = null,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, String, Boolean) -> Unit,
 ) {
     var username by remember(account) { mutableStateOf(account?.credential?.username.orEmpty()) }
     var password by remember(account) { mutableStateOf(account?.credential?.password.orEmpty()) }
+    var useCustomDeviceCode by remember(account) { mutableStateOf(account?.useCustomDeviceCode ?: false) }
+    var deviceCode by remember(account) { mutableStateOf(account?.deviceCode.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (account == null) "新增账号" else "编辑账号") },
@@ -387,9 +389,16 @@ private fun AccountDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("账号") })
                 OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("密码") })
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text("使用自定义 deviceCode")
+                    Switch(checked = useCustomDeviceCode, onCheckedChange = { useCustomDeviceCode = it })
+                }
+                if (useCustomDeviceCode) {
+                    OutlinedTextField(value = deviceCode, onValueChange = { deviceCode = it }, label = { Text("deviceCode") })
+                }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(username, password) }) { Text("保存") } },
+        confirmButton = { TextButton(onClick = { onSave(username, password, deviceCode, useCustomDeviceCode) }) { Text("保存") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
@@ -561,7 +570,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("关于应用", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("版本: 1.0.9")
+                Text("版本: 1.0.10")
                 Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr")
                 Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试")
             }

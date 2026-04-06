@@ -171,12 +171,30 @@ class KeepAliveEngine(
 
     fun importAccounts(raw: String) {
         val parsed = com.monkeycode.ctyunkeepalive.core.parseBatchAccounts(raw)
-        parsed.forEach(accountRepository::addOrReplace)
+        parsed.forEach { input ->
+            accountRepository.addOrReplace(
+                StoredAccount(
+                    credential = AccountCredential(
+                        id = java.util.UUID.randomUUID().toString(),
+                        username = input.username,
+                        password = input.password,
+                    ),
+                    deviceCode = input.deviceCode,
+                    useCustomDeviceCode = input.useCustomDeviceCode,
+                )
+            )
+        }
         logRepository.append(LogLevel.SUCCESS, "批量导入 ${parsed.size} 个账号")
     }
 
-    fun addAccount(username: String, password: String) {
-        accountRepository.addOrReplace(AccountCredential(id = java.util.UUID.randomUUID().toString(), username = username, password = password))
+    fun addAccount(username: String, password: String, deviceCode: String = "", useCustomDeviceCode: Boolean = false) {
+        accountRepository.addOrReplace(
+            StoredAccount(
+                credential = AccountCredential(id = java.util.UUID.randomUUID().toString(), username = username, password = password),
+                deviceCode = if (useCustomDeviceCode) deviceCode.trim() else "",
+                useCustomDeviceCode = useCustomDeviceCode,
+            )
+        )
         logRepository.append(LogLevel.SUCCESS, "已添加账号 ${maskAccount(username)}")
     }
 
@@ -197,11 +215,17 @@ class KeepAliveEngine(
         val masked = maskAccount(account.credential.username)
         return runCatching {
             logRepository.append(LogLevel.INFO, "$masked 开始执行保活")
-            val deviceCode = account.deviceCode.ifBlank { buildDeviceCode(account.credential.username) }
-            accountRepository.updateDeviceCode(account.credential.username, deviceCode)
+            val deviceCode = if (account.useCustomDeviceCode && account.deviceCode.isNotBlank()) {
+                account.deviceCode.trim()
+            } else {
+                buildDeviceCode(account.credential.username)
+            }
+            if (!account.useCustomDeviceCode) {
+                accountRepository.updateDeviceCode(account.credential.username, deviceCode)
+            }
             logRepository.append(
                 LogLevel.DEBUG,
-                "$masked [account] deviceCode=${short(deviceCode, 16)} authCache=${account.auth != null} fingerprint=${AppConfig.deviceModel}"
+                "$masked [account] deviceCode=${short(deviceCode, 16)} authCache=${account.auth != null} customDeviceCode=${account.useCustomDeviceCode} fingerprint=${AppConfig.deviceModel}"
             )
             val auth = account.auth ?: loginWithCaptchaRetry(account, deviceCode)
             executeAccountFlow(account, auth, deviceCode, masked, allowListRelogin = true)

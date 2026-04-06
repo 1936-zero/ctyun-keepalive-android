@@ -62,9 +62,11 @@ class MainViewModel(
 
     fun importAccounts(raw: String) = container.keepAliveEngine.importAccounts(raw)
 
-    fun addAccount(username: String, password: String) = container.keepAliveEngine.addAccount(username, password)
+    fun addAccount(username: String, password: String, deviceCode: String, useCustomDeviceCode: Boolean) =
+        container.keepAliveEngine.addAccount(username, password, deviceCode, useCustomDeviceCode)
 
-    fun updateAccount(accountId: String, username: String, password: String) = container.accountRepository.updateAccount(accountId, username, password)
+    fun updateAccount(accountId: String, username: String, password: String, deviceCode: String, useCustomDeviceCode: Boolean) =
+        container.accountRepository.updateAccount(accountId, username, password, deviceCode, useCustomDeviceCode)
 
     fun removeAccount(accountId: String) = container.accountRepository.removeAccount(accountId)
 

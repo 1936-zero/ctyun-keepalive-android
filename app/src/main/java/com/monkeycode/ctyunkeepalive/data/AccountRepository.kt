@@ -32,11 +32,21 @@ class AccountRepository(
         saveAccounts(current)
     }
 
-    fun updateAccount(accountId: String, username: String, password: String) {
+    fun addOrReplace(account: StoredAccount) {
+        val current = state.value.toMutableList()
+        val index = current.indexOfFirst { it.credential.username == account.credential.username }
+        if (index >= 0) current[index] = account else current += account
+        saveAccounts(current)
+    }
+
+    fun updateAccount(accountId: String, username: String, password: String, deviceCode: String, useCustomDeviceCode: Boolean) {
         saveAccounts(state.value.map {
             if (it.credential.id != accountId) return@map it
             it.copy(
                 credential = it.credential.copy(username = username, password = password),
+                deviceCode = if (useCustomDeviceCode) deviceCode.trim() else "",
+                useCustomDeviceCode = useCustomDeviceCode,
+                auth = null,
                 updatedAt = System.currentTimeMillis(),
             )
         })

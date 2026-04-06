@@ -19,6 +19,7 @@ data class AuthCache(
 data class StoredAccount(
     val credential: AccountCredential,
     val deviceCode: String = "",
+    val useCustomDeviceCode: Boolean = false,
     val auth: AuthCache? = null,
     val updatedAt: Long = System.currentTimeMillis(),
 )
