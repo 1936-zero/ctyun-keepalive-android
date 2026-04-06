@@ -142,14 +142,15 @@ class KeepAliveEngine(
 
             val nextRun = System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L
             val old = settingsRepository.stats().value
+            val standby = trigger == RunTrigger.SCHEDULED && settings.cronEnabled
             updateStats(
                 old.copy(
                     todayRuns = old.todayRuns + 1,
                     successAccounts = success,
                     failedAccounts = failed,
-                    currentProgress = "执行完成",
+                    currentProgress = if (standby) "后台待命" else "执行完成",
                     lastRunAt = System.currentTimeMillis(),
-                    nextRunAt = nextRun,
+                    nextRunAt = if (standby) nextRun else old.nextRunAt,
                     running = false,
                 )
             )
