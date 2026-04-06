@@ -122,6 +122,24 @@ class CtyunApiClient(
         }.orEmpty()
     }
 
+    suspend fun getDesktopFeature(auth: AuthCache, deviceCode: String, device: DesktopDevice): JsonObject = withContext(Dispatchers.IO) {
+        requestJson(
+            path = "/api/desktop/client/feature",
+            method = "GET",
+            query = mapOf("objId" to device.objId, "objType" to device.objType),
+            headers = authHeaders(deviceCode, auth),
+        )
+    }
+
+    suspend fun getDesktopExtraInfo(auth: AuthCache, deviceCode: String, device: DesktopDevice): JsonObject = withContext(Dispatchers.IO) {
+        requestJson(
+            path = "/api/desktop/client/getDesktopExtraInfo",
+            method = "GET",
+            query = mapOf("objId" to device.objId, "objType" to device.objType),
+            headers = authHeaders(deviceCode, auth),
+        )
+    }
+
     suspend fun connectDevice(auth: AuthCache, deviceCode: String, device: DesktopDevice): JsonObject = withContext(Dispatchers.IO) {
         val body = FormBody.Builder()
             .add("objId", device.objId)
@@ -157,10 +175,11 @@ class CtyunApiClient(
     }
 
     suspend fun getDesktopState(auth: AuthCache, deviceCode: String, desktopId: String): JsonObject = withContext(Dispatchers.IO) {
+        val payload = desktopId.toLongOrNull()?.let { "[$it]" } ?: "[\"$desktopId\"]"
         requestJson(
             path = "/api/desktop/client/state",
             method = "POST",
-            body = "[\"$desktopId\"]".toRequestBody("application/json".toMediaType()),
+            body = payload.toRequestBody("application/json".toMediaType()),
             headers = authHeaders(deviceCode, auth),
         )
     }

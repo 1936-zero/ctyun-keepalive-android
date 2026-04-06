@@ -2,6 +2,7 @@ package com.monkeycode.ctyunkeepalive.domain
 
 import android.content.Context
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.monkeycode.ctyunkeepalive.core.AccountCredential
 import com.monkeycode.ctyunkeepalive.core.AppConfig
 import com.monkeycode.ctyunkeepalive.core.AppSettings
@@ -40,8 +41,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.util.Base64
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+
+private const val SUMMARY_ABSENT = "-"
 
 class KeepAliveEngine(
     private val appContext: Context,
@@ -175,8 +179,13 @@ class KeepAliveEngine(
             logRepository.append(LogLevel.INFO, "$masked 开始执行保活")
             val deviceCode = account.deviceCode.ifBlank { buildDeviceCode(account.credential.username) }
             accountRepository.updateDeviceCode(account.credential.username, deviceCode)
+            logRepository.append(
+                LogLevel.DEBUG,
+                "$masked [account] deviceCode=${short(deviceCode, 16)} authCache=${account.auth != null} fingerprint=${AppConfig.deviceModel}"
+            )
             var auth = account.auth ?: loginWithCaptchaRetry(account, deviceCode)
             val devices = apiClient.listDevices(auth, deviceCode)
+            logRepository.append(LogLevel.DEBUG, "$masked [list] deviceCount=${devices.size} devices=${devices.joinToString { deviceLabel(it) }}")
             require(devices.isNotEmpty()) { "$masked 未查询到云手机" }
             devices.forEachIndexed { index, device ->
                 keepAliveOne(auth, deviceCode, device, index + 1, devices.size, masked)
@@ -202,9 +211,11 @@ class KeepAliveEngine(
         var captcha = ""
         repeat(AppConfig.maxCaptchaRetries + 1) { round ->
             try {
+                logRepository.append(LogLevel.DEBUG, "${maskAccount(account.credential.username)} [login] attempt=${round + 1} deviceCode=${short(deviceCode, 16)} captcha=${if (captcha.isBlank()) "none" else captcha}")
                 val auth = apiClient.login(account.copy(deviceCode = deviceCode), captcha)
                 accountRepository.updateAuth(account.credential.username, auth)
                 logRepository.append(LogLevel.SUCCESS, "${maskAccount(account.credential.username)} 登录成功")
+                logRepository.append(LogLevel.DEBUG, "${maskAccount(account.credential.username)} [login] tenantId=${auth.tenantId} userId=${auth.userId} bondedDevice=${blankAsDash(auth.bondedDevice)}")
                 return auth
             } catch (error: ApiException) {
                 if (error.code == 51010) throw IllegalStateException("${maskAccount(account.credential.username)} 账号或密码错误")
@@ -227,47 +238,111 @@ class KeepAliveEngine(
         maskedAccount: String,
     ) {
         logRepository.append(LogLevel.INFO, "$maskedAccount 设备 $index/$total ${device.objName} 开始建连")
+        logRepository.append(LogLevel.DEBUG, "$maskedAccount [device] ${deviceLabel(device)} connectMaster=${device.connectMaster} objType=${blankAsDash(device.objType)}")
+        warmupDevice(auth, deviceCode, device, maskedAccount)
         val first = apiClient.connectDevice(auth, deviceCode, device)
+        logRepository.append(LogLevel.DEBUG, "$maskedAccount [connect] ${connectionSummaryText(apiClient.summarizeConnection(first))} keys=${jsonKeys(first)}")
         val desktopId = first["desktopId"]?.asString ?: device.desktopId
         val ready = waitUntilReady(auth, deviceCode, device, desktopId, first)
         finishDesktopEntry(auth, deviceCode, desktopId, ready)
         logRepository.append(LogLevel.SUCCESS, "$maskedAccount ${device.objName} 已完成 connect/status/state/strategy 阶段")
-        probeClink(maskedAccount, auth, deviceCode, ready)
+        probeClink(maskedAccount, auth, deviceCode, device, ready)
     }
 
-    private fun probeClink(maskedAccount: String, auth: AuthCache, deviceCode: String, ready: JsonObject) {
-        val summary = apiClient.summarizeConnection(ready)
-        if (summary.token.isBlank() || summary.internalIp.isBlank() || summary.internalPort.isBlank()) {
-            logRepository.append(LogLevel.WARNING, "$maskedAccount Clink 探测跳过: 缺少 token 或内网地址")
-            return
+    private suspend fun warmupDevice(auth: AuthCache, deviceCode: String, device: DesktopDevice, maskedAccount: String) {
+        logRepository.append(LogLevel.DEBUG, "$maskedAccount [warmup] start ${deviceLabel(device)}")
+        runCatching { apiClient.getDesktopFeature(auth, deviceCode, device) }
+            .onSuccess { data ->
+                logRepository.append(LogLevel.DEBUG, "$maskedAccount [warmup.feature] ok keys=${jsonKeys(data)}")
+            }
+            .onFailure { error ->
+                logRepository.append(LogLevel.WARNING, "$maskedAccount [warmup.feature] failed: ${error.message}")
+            }
+        runCatching { apiClient.getDesktopExtraInfo(auth, deviceCode, device) }
+            .onSuccess { data ->
+                logRepository.append(LogLevel.DEBUG, "$maskedAccount [warmup.extraInfo] ok keys=${jsonKeys(data)}")
+            }
+            .onFailure { error ->
+                logRepository.append(LogLevel.WARNING, "$maskedAccount [warmup.extraInfo] failed: ${error.message}")
+            }
+    }
+
+    private suspend fun probeClink(maskedAccount: String, auth: AuthCache, deviceCode: String, device: DesktopDevice, ready: JsonObject) {
+        var current = ready
+        val maxAttempts = AppConfig.clinkAttachRetries + 1
+        var lastError: Throwable? = null
+        for (attempt in 1..maxAttempts) {
+            val summary = apiClient.summarizeConnection(current)
+            if (summary.token.isBlank() || summary.internalIp.isBlank() || summary.internalPort.isBlank()) {
+                logRepository.append(LogLevel.WARNING, "$maskedAccount Clink 探测跳过: 缺少 token 或内网地址")
+                logRepository.append(LogLevel.DEBUG, "$maskedAccount [clink.skip] ${connectionSummaryText(summary)}")
+                return
+            }
+            val config = buildClinkConfig(auth = auth, deviceCode = deviceCode, ready = current, summary = summary)
+            logRepository.append(
+                LogLevel.DEBUG,
+                "$maskedAccount [clink.config] attempt=$attempt/$maxAttempts uri=${config.uri} serverName=${config.serverName} deviceType=${config.deviceType} oqs=${config.oqs} certs=${summary.clientCert.isNotBlank()}/${summary.clientKey.isNotBlank()}/${summary.caCert.isNotBlank()}"
+            )
+            val result = runCatching { clinkAttacher.attachAll(config, AppConfig.clinkHoldMs, AppConfig.enterWaitMs) }
+            if (result.getOrDefault(false)) {
+                logRepository.append(LogLevel.SUCCESS, "$maskedAccount Clink MAIN 通道探测成功")
+                return
+            }
+            lastError = result.exceptionOrNull()
+            if (attempt >= maxAttempts) break
+            logRepository.append(LogLevel.WARNING, "$maskedAccount [clink.retry] attach attempt=$attempt failed=${lastError?.message ?: "unknown"}")
+            delay(AppConfig.clinkRetryDelayMs)
+            current = refreshConnectionForClink(maskedAccount, auth, deviceCode, device, current)
         }
-        val config = buildClinkConfig(auth = auth, deviceCode = deviceCode, summary = summary)
-        val ok = runCatching { kotlinx.coroutines.runBlocking { clinkAttacher.attachAll(config, AppConfig.clinkHoldMs, AppConfig.enterWaitMs) } }.getOrDefault(false)
-        if (ok) {
-            logRepository.append(LogLevel.SUCCESS, "$maskedAccount Clink MAIN 通道探测成功")
-        } else {
-            logRepository.append(LogLevel.WARNING, "$maskedAccount Clink MAIN 通道未完成全量附着，仍需真机联调")
+        logRepository.append(LogLevel.WARNING, "$maskedAccount Clink MAIN 通道未完成全量附着，仍需真机联调")
+        lastError?.message?.let {
+            logRepository.append(LogLevel.DEBUG, "$maskedAccount [clink.final] lastError=$it")
         }
     }
 
-    private fun buildClinkConfig(auth: AuthCache?, deviceCode: String, summary: ConnectionSummary): ClinkConfig {
+    private fun buildClinkConfig(auth: AuthCache?, deviceCode: String, ready: JsonObject, summary: ConnectionSummary): ClinkConfig {
+        val desktopInfo = ready.get("desktopInfo")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
+        val tokenPayload = decodeJwtPayload(summary.token)
+        val resolvedUri = resolveClinkUri(summary.desktopId, desktopInfo)
+        val resolvedDeviceType = tokenPayload?.stringOrNull("ty")?.takeIf { it.isNotBlank() } ?: AppConfig.deviceType.toString()
+        val resolvedDesktopId = tokenPayload?.stringOrNull("d1")?.toIntOrNull() ?: summary.desktopId.toIntOrNull() ?: 0
+        val resolvedDeviceCode = tokenPayload?.stringOrNull("c")?.takeIf { it.isNotBlank() } ?: deviceCode
+        val oqs = if ((desktopInfo.intOrNull("desktopCertCategory") ?: 0) == 2) 1 else 0
         return ClinkConfig(
-            uri = "wss://deskmsgz.ctyun.cn:9011/clinkProxy/${summary.desktopId}",
+            uri = resolvedUri,
             host = summary.internalIp,
             port = summary.internalPort,
             serverName = "${summary.internalIp}:${summary.internalPort}",
             token = summary.token,
-            desktopId = summary.desktopId.toIntOrNull() ?: 0,
-            deviceType = AppConfig.deviceType.toString(),
-            deviceCode = deviceCode,
+            desktopId = resolvedDesktopId,
+            deviceType = resolvedDeviceType,
+            deviceCode = resolvedDeviceCode,
             userAccount = auth?.userAccount.orEmpty(),
             userName = auth?.userName.orEmpty(),
             userId = auth?.userId?.toIntOrNull() ?: 0,
             clientCert = summary.clientCert,
             clientKey = summary.clientKey,
             caCert = summary.caCert,
-            oqs = 0,
+            oqs = oqs,
         )
+    }
+
+    private suspend fun refreshConnectionForClink(maskedAccount: String, auth: AuthCache, deviceCode: String, device: DesktopDevice, current: JsonObject): JsonObject {
+        val desktopId = apiClient.summarizeConnection(current).desktopId.ifBlank { device.desktopId }
+        runCatching {
+            apiClient.getDesktopStatus(auth, deviceCode, device, desktopId)
+        }.onSuccess {
+            logRepository.append(LogLevel.DEBUG, "$maskedAccount [clink.refresh.status] ${connectionSummaryText(apiClient.summarizeConnection(it))} keys=${jsonKeys(it)}")
+            if (isConnectionReady(it)) {
+                return it
+            }
+        }.onFailure {
+            logRepository.append(LogLevel.DEBUG, "$maskedAccount [clink.refresh.status] failed=${it.message}")
+        }
+
+        val connect = apiClient.connectDevice(auth, deviceCode, device)
+        logRepository.append(LogLevel.DEBUG, "$maskedAccount [clink.refresh.connect] ${connectionSummaryText(apiClient.summarizeConnection(connect))} keys=${jsonKeys(connect)}")
+        return if (isConnectionReady(connect)) connect else waitUntilReady(auth, deviceCode, device, desktopId, connect)
     }
 
     private suspend fun waitUntilReady(
@@ -279,13 +354,17 @@ class KeepAliveEngine(
     ): JsonObject {
         var current = initial
         val deadline = System.currentTimeMillis() + AppConfig.bootWaitMs
+        var attempt = 1
         while (System.currentTimeMillis() <= deadline) {
             val summary = apiClient.summarizeConnection(current)
+            logRepository.append(LogLevel.DEBUG, "[ready.poll] attempt=$attempt device=${deviceLabel(device)} ${connectionSummaryText(summary)}")
             if (summary.desktopId.isNotBlank() && summary.token.isNotBlank() && summary.internalIp.isNotBlank() && summary.internalPort.isNotBlank()) {
+                logRepository.append(LogLevel.DEBUG, "[ready.poll] completed attempt=$attempt device=${deviceLabel(device)}")
                 return current
             }
             delay(AppConfig.statusPollIntervalMs)
             current = apiClient.getDesktopStatus(auth, deviceCode, device, desktopId)
+            attempt += 1
         }
         throw IllegalStateException("设备进入桌面超时")
     }
@@ -295,23 +374,103 @@ class KeepAliveEngine(
         val deadline = System.currentTimeMillis() + AppConfig.enterWaitMs
         var strategyReadyAt = 0L
         var stateReady = false
+        var attempt = 0
         while (System.currentTimeMillis() <= deadline) {
-            stateReady = runCatching { apiClient.getDesktopState(auth, deviceCode, desktopId) }.isSuccess || stateReady
+            attempt += 1
+            val stateResult = runCatching { apiClient.getDesktopState(auth, deviceCode, desktopId) }
+            stateReady = stateResult.isSuccess || stateReady
+            stateResult.onSuccess { data ->
+                logRepository.append(LogLevel.DEBUG, "[enter.state] attempt=$attempt desktopId=$desktopId ok keys=${jsonKeys(data)}")
+            }.onFailure { error ->
+                logRepository.append(LogLevel.DEBUG, "[enter.state] attempt=$attempt desktopId=$desktopId failed=${error.message}")
+            }
             if (summary.token.isNotBlank()) {
                 runCatching { apiClient.getDesktopStrategy(auth, deviceCode, desktopId, summary.token) }
                     .onSuccess {
+                        logRepository.append(LogLevel.DEBUG, "[enter.strategy] attempt=$attempt desktopId=$desktopId ok keys=${jsonKeys(it)}")
                         if (strategyReadyAt == 0L) strategyReadyAt = System.currentTimeMillis()
                         if (System.currentTimeMillis() - strategyReadyAt >= AppConfig.postEnterHoldMs) {
                             if (!stateReady) {
                                 logRepository.append(LogLevel.WARNING, "桌面 state 上报未成功，按已进入桌面继续")
                             }
+                            logRepository.append(LogLevel.DEBUG, "[enter.complete] desktopId=$desktopId stateReady=$stateReady ${connectionSummaryText(summary)}")
                             return
                         }
+                    }
+                    .onFailure {
+                        logRepository.append(LogLevel.DEBUG, "[enter.strategy] attempt=$attempt desktopId=$desktopId failed=${it.message}")
                     }
             }
             delay(AppConfig.statusPollIntervalMs)
         }
         throw IllegalStateException("桌面策略加载超时")
+    }
+
+    private fun deviceLabel(device: DesktopDevice): String {
+        return "${device.objName}(${blankAsDash(device.desktopId.ifBlank { device.objId })})"
+    }
+
+    private fun connectionSummaryText(summary: ConnectionSummary): String {
+        return "desktopId=${blankAsDash(summary.desktopId)} token=${summary.token.isNotBlank()} internalIp=${blankAsDash(summary.internalIp)} internalPort=${blankAsDash(summary.internalPort)} certs=${summary.clientCert.isNotBlank()}/${summary.clientKey.isNotBlank()}/${summary.caCert.isNotBlank()}"
+    }
+
+    private fun isConnectionReady(data: JsonObject): Boolean {
+        val summary = apiClient.summarizeConnection(data)
+        return summary.desktopId.isNotBlank() && summary.token.isNotBlank() && summary.internalIp.isNotBlank() && summary.internalPort.isNotBlank()
+    }
+
+    private fun resolveClinkUri(desktopId: String, desktopInfo: JsonObject): String {
+        val hostCandidates = listOf(
+            desktopInfo.stringOrNull("clinkLvsOutHost"),
+            desktopInfo.stringOrNull("clinkIpv6LvsOutHost"),
+            desktopInfo.stringOrNull("clinkLvsOutHostBak"),
+            desktopInfo.stringOrNull("clinkIpv6LvsOutHostBak"),
+            desktopInfo.stringOrNull("host"),
+        ).mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        val portCandidates = listOf(
+            desktopInfo.stringOrNull("clinkLvsOutPort"),
+            desktopInfo.stringOrNull("clinkPort"),
+            desktopInfo.stringOrNull("clinkLvsPort"),
+            desktopInfo.stringOrNull("port"),
+        ).mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        if (hostCandidates.isNotEmpty() && portCandidates.isNotEmpty()) {
+            return "wss://${hostCandidates.first()}:${portCandidates.first()}/clinkProxy/$desktopId"
+        }
+        return "wss://deskmsgz.ctyun.cn:9011/clinkProxy/$desktopId"
+    }
+
+    private fun decodeJwtPayload(token: String): JsonObject? {
+        val segments = token.split('.')
+        if (segments.size < 2) return null
+        return runCatching {
+            val payload = Base64.getUrlDecoder().decode(segments[1])
+            JsonParser.parseString(String(payload)).asJsonObject
+        }.getOrNull()
+    }
+
+    private fun jsonKeys(data: JsonObject): String {
+        return data.keySet().take(8).joinToString(prefix = "[", postfix = if (data.keySet().size > 8) ", ...]" else "]")
+    }
+
+    private fun short(value: String, maxLength: Int): String {
+        if (value.length <= maxLength) return value
+        return value.take(maxLength) + "..."
+    }
+
+    private fun blankAsDash(value: String): String {
+        return value.ifBlank { SUMMARY_ABSENT }
+    }
+
+    private fun JsonObject.stringOrNull(key: String): String? {
+        val element = get(key) ?: return null
+        if (element.isJsonNull) return null
+        return runCatching { element.asString }.getOrNull()
+    }
+
+    private fun JsonObject.intOrNull(key: String): Int? {
+        val element = get(key) ?: return null
+        if (element.isJsonNull) return null
+        return runCatching { element.asInt }.getOrNull()
     }
 
     private fun updateStats(stats: RunStats) {

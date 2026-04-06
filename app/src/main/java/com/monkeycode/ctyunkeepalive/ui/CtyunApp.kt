@@ -436,6 +436,7 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
                     Text(
                         text = "${formatTime(item.timestamp)} ${item.message}",
                         color = when (item.level) {
+                            LogLevel.DEBUG -> Color(0xFF9EC1FF)
                             LogLevel.INFO -> Color.White
                             LogLevel.SUCCESS -> Color(0xFF5CE27B)
                             LogLevel.WARNING -> Color(0xFFFFD54F)

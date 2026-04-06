@@ -43,6 +43,7 @@ data class RunStats(
 )
 
 enum class LogLevel {
+    DEBUG,
     INFO,
     SUCCESS,
     WARNING,
