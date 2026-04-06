@@ -206,7 +206,6 @@ class KeepAliveEngine(
         logRepository.append(LogLevel.INFO, "$maskedAccount 设备 $index/$total ${device.objName} 开始建连")
         val first = apiClient.connectDevice(auth, deviceCode, device)
         val desktopId = first["desktopId"]?.asString ?: device.desktopId
-        apiClient.getDesktopState(auth, deviceCode, desktopId)
         val ready = waitUntilReady(auth, deviceCode, device, desktopId, first)
         finishDesktopEntry(auth, deviceCode, desktopId, ready)
         logRepository.append(LogLevel.SUCCESS, "$maskedAccount ${device.objName} 已完成 connect/status/state/strategy 阶段")
@@ -272,13 +271,19 @@ class KeepAliveEngine(
         val summary = apiClient.summarizeConnection(ready)
         val deadline = System.currentTimeMillis() + AppConfig.enterWaitMs
         var strategyReadyAt = 0L
+        var stateReady = false
         while (System.currentTimeMillis() <= deadline) {
-            runCatching { apiClient.getDesktopState(auth, deviceCode, desktopId) }
+            stateReady = runCatching { apiClient.getDesktopState(auth, deviceCode, desktopId) }.isSuccess || stateReady
             if (summary.token.isNotBlank()) {
                 runCatching { apiClient.getDesktopStrategy(auth, deviceCode, desktopId, summary.token) }
                     .onSuccess {
                         if (strategyReadyAt == 0L) strategyReadyAt = System.currentTimeMillis()
-                        if (System.currentTimeMillis() - strategyReadyAt >= AppConfig.postEnterHoldMs) return
+                        if (System.currentTimeMillis() - strategyReadyAt >= AppConfig.postEnterHoldMs) {
+                            if (!stateReady) {
+                                logRepository.append(LogLevel.WARNING, "桌面 state 上报未成功，按已进入桌面继续")
+                            }
+                            return
+                        }
                     }
             }
             delay(AppConfig.statusPollIntervalMs)

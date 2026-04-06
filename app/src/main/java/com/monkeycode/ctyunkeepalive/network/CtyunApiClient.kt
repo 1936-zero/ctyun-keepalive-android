@@ -230,7 +230,6 @@ class CtyunApiClient(
             val code = root["code"]?.asInt ?: -1
             if (code != 0) {
                 val message = root["msg"]?.asString ?: "unknown error"
-                logRepository.append(com.monkeycode.ctyunkeepalive.core.LogLevel.ERROR, "$method $path 失败: $message")
                 throw ApiException(code, "$method $path 失败: $message")
             }
             return@withContext root["data"]?.asJsonObject ?: JsonObject()
