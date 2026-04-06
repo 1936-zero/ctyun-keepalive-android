@@ -227,17 +227,28 @@ class KeepAliveEngine(
     ): List<DesktopDevice> {
         return runCatching { apiClient.listDevices(auth, deviceCode) }
             .recoverCatching { error ->
-                if (error is ApiException && error.code == 40010) {
-                    logRepository.append(LogLevel.WARNING, "$masked [list] 鉴权失效，准备自动重新登录")
+                if (shouldRetryListAfterRelogin(error)) {
+                    val detail = if (error is ApiException) "code=${error.code} message=${error.message}" else "message=${error.message}"
+                    logRepository.append(LogLevel.WARNING, "$masked [list] 鉴权失效，准备自动重新登录 ($detail)")
                     val refreshed = loginWithCaptchaRetry(account, deviceCode)
                     accountRepository.updateAuth(account.credential.username, refreshed)
                     logRepository.append(LogLevel.INFO, "$masked [list] 已自动重新登录，重试获取设备列表")
                     apiClient.listDevices(refreshed, deviceCode)
                 } else {
+                    if (error is ApiException) {
+                        logRepository.append(LogLevel.ERROR, "$masked [list] 获取设备失败 code=${error.code} message=${error.message}")
+                    }
                     throw error
                 }
             }
             .getOrThrow()
+    }
+
+    private fun shouldRetryListAfterRelogin(error: Throwable): Boolean {
+        if (error !is ApiException) return false
+        if (error.code == 40010) return true
+        val message = error.message.orEmpty()
+        return message.contains("登录失败，请重试") || message.contains("鉴权") || message.contains("认证")
     }
 
     private fun currentAuth(username: String): AuthCache? {
