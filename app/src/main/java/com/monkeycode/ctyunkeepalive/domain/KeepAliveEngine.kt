@@ -260,7 +260,22 @@ class KeepAliveEngine(
                     val refreshed = loginWithCaptchaRetry(account, deviceCode)
                     accountRepository.updateAuth(account.credential.username, refreshed)
                     logRepository.append(LogLevel.INFO, "$masked [list] 已自动重新登录，重试获取设备列表")
-                    apiClient.listDevices(refreshed, deviceCode)
+                    runCatching { apiClient.listDevices(refreshed, deviceCode) }
+                        .recoverCatching { retryError ->
+                            if (shouldRetryAuthExpired(retryError)) {
+                                val newDeviceCode = buildDeviceCode(account.credential.username + System.currentTimeMillis())
+                                logRepository.append(LogLevel.WARNING, "$masked [list] 重登录后仍鉴权失败，准备重置 deviceCode=${short(newDeviceCode, 16)}")
+                                accountRepository.updateDeviceCode(account.credential.username, newDeviceCode)
+                                accountRepository.updateAuth(account.credential.username, null)
+                                val refreshedWithNewDevice = loginWithCaptchaRetry(account.copy(deviceCode = newDeviceCode), newDeviceCode)
+                                accountRepository.updateAuth(account.credential.username, refreshedWithNewDevice)
+                                logRepository.append(LogLevel.INFO, "$masked [list] 已使用新 deviceCode 重新登录，再次获取设备列表")
+                                apiClient.listDevices(refreshedWithNewDevice, newDeviceCode)
+                            } else {
+                                throw retryError
+                            }
+                        }
+                        .getOrThrow()
                 } else {
                     if (error is ApiException) {
                         logRepository.append(LogLevel.ERROR, "$masked [list] 获取设备失败 code=${error.code} message=${error.message}")
