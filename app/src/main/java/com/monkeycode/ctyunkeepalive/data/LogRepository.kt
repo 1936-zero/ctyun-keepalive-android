@@ -27,5 +27,6 @@ class LogRepository(
 
     fun clear() {
         state.value = emptyList()
+        fileStore?.clearAll()
     }
 }

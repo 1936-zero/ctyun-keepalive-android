@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.MediaStore.MediaColumns
 import androidx.core.content.ContextCompat
 import com.monkeycode.ctyunkeepalive.core.LogEntry
 import kotlinx.coroutines.CoroutineScope
@@ -93,6 +94,18 @@ class LogFileStore(
         }.getOrDefault(false)
     }
 
+    fun clearAll() {
+        runBlocking(Dispatchers.IO) {
+            writeLock.withLock {
+                runCatching { clearBackupFiles() }
+                runCatching { clearLegacyFiles() }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    runCatching { clearMediaStoreFiles() }
+                }
+            }
+        }
+    }
+
     private fun appendInternal(entry: LogEntry) {
         val text = buildLogLine(entry)
         appendWithBackupFile(text, entry.timestamp)
@@ -142,6 +155,43 @@ class LogFileStore(
     private fun appendWithBackupFile(text: String, timestamp: Long) {
         val directory = backupDirectory().apply { mkdirs() }
         File(directory, dailyFileName(timestamp)).appendText(text, Charsets.UTF_8)
+    }
+
+    private fun clearBackupFiles() {
+        backupDirectory().listFiles()?.forEach { file ->
+            if (file.isFile && file.name.endsWith(".log")) {
+                file.writeText("", Charsets.UTF_8)
+            }
+        }
+    }
+
+    private fun clearLegacyFiles() {
+        legacyDirectory().listFiles()?.forEach { file ->
+            if (file.isFile && file.name.endsWith(".log")) {
+                file.writeText("", Charsets.UTF_8)
+            }
+        }
+    }
+
+    private fun clearMediaStoreFiles() {
+        val resolver = appContext.contentResolver
+        val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val ids = resolver.query(
+            collection,
+            arrayOf(MediaColumns._ID),
+            "${MediaColumns.RELATIVE_PATH}=?",
+            arrayOf(relativeDirectory),
+            null,
+        )?.use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(cursor.getLong(cursor.getColumnIndexOrThrow(MediaColumns._ID)))
+                }
+            }
+        }.orEmpty()
+        ids.forEach { id ->
+            resolver.delete(android.net.Uri.withAppendedPath(collection, id.toString()), null, null)
+        }
     }
 
     private fun buildLogLine(entry: LogEntry): String {
