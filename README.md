@@ -2,8 +2,7 @@
 
 这是一个将 `ctyun-phone-keepalive.js` 迁移为 Android 原生 Kotlin 应用的工程骨架。
 
-其中 `ctyun-phone-keepalive.js` 原始脚本来源于妖火 `@YH` 大佬，本项目是在该脚本逻辑基础上的 Android 原生实现与工程化整理。<img width="1782" height="985" alt="1d06bd040f8a8765dbc6ea637aede3fa" src="https://github.com/user-attachments/assets/5c6152d0-0214-4677-a365-fe5b2cac1f04" />
-
+其中 `ctyun-phone-keepalive.js` 原始脚本来源于妖火 `@YH` 大佬，本项目是在该脚本逻辑基础上的 Android 原生实现与工程化整理。
 
 ## 当前实现
 
