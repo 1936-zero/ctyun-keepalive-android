@@ -42,7 +42,7 @@ class NotificationCenter(
         }
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("天翼云手机保活")
+            .setContentTitle("天翼云手机后台保活")
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text + "\n进度: ${stats.currentProgress}"))
             .setContentIntent(pendingIntent)

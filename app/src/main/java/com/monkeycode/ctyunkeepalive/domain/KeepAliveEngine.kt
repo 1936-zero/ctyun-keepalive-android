@@ -107,7 +107,7 @@ class KeepAliveEngine(
         scheduleIfNeeded(settings)
         logRepository.append(
             LogLevel.INFO,
-            if (settings.cronEnabled) "前台保活服务已启动，等待手动测试或定时任务" else "前台保活服务已启动，但定时任务已关闭"
+            if (settings.cronEnabled) "后台保活服务已启动，等待手动测试或定时任务" else "后台保活服务已启动，但定时任务已关闭"
         )
     }
 

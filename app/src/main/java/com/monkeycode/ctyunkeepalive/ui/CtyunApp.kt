@@ -170,7 +170,7 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Version 1.0.3")
+            Text("Version 1.0.4")
             Text("ROOT: ${if (dashboard.rootGranted) "已授权" else "检测中"}")
             Text("Python: ${if (dashboard.pythonReady) "已加载" else "加载中"}")
             Text("OCR: ${if (dashboard.ocrReady) "已初始化" else "初始化中"}")
@@ -187,6 +187,11 @@ private fun HomeScreen(
 ) {
     val dashboard = uiState.dashboard
     val clipboard = LocalClipboardManager.current
+    val statusText = when {
+        dashboard.runStats.running -> "运行中"
+        dashboard.runStats.currentProgress.contains("后台") -> "后台待命"
+        else -> "已停止"
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -198,7 +203,7 @@ private fun HomeScreen(
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("天翼云手机保活", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("状态: ${if (dashboard.runStats.running) "运行中" else "已停止"}")
+                    Text("状态: $statusText")
                     Text("ROOT: ${if (dashboard.rootGranted) "已授权" else "未授权"}")
                     Text("OCR: ${if (dashboard.ocrReady) "离线模型已就绪" else "未初始化"}")
                 }
@@ -237,7 +242,7 @@ private fun HomeScreen(
                         }
                     }
                     Text("日志已保存到: ${uiState.logDirectoryPath}", color = MaterialTheme.colorScheme.primary)
-                    Text("说明: “立即测试保活”只执行一次；“启动后台保活”只启动前台服务和定时任务。", style = MaterialTheme.typography.bodySmall)
+                    Text("说明: “立即测试保活”只执行一次；“启动后台保活”只启动后台保活服务和定时任务。", style = MaterialTheme.typography.bodySmall)
                     if (!dashboard.rootGranted) {
                         Text("提示: 当前 ROOT 未授权，系统级保活能力不会生效。", color = MaterialTheme.colorScheme.error)
                     }
@@ -545,7 +550,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
                 Text("服务说明: 前台服务 + AlarmManager + ROOT 守护进程")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重新检测权限") }
-                    OutlinedButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) { Text("重启前台服务") }
+                    OutlinedButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) { Text("重启后台保活服务") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = { viewModel.clearLogs() }, modifier = Modifier.weight(1f)) { Text("清理缓存日志") }
@@ -556,7 +561,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("关于应用", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("版本: 1.0.3")
+                Text("版本: 1.0.4")
                 Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr")
                 Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试")
             }
