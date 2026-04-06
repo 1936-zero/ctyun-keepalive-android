@@ -97,6 +97,7 @@ class ClinkWebSocketAttacher(
         private var ready = false
         private var failed: Throwable? = null
         private var heartbeatJob: Job? = null
+        private var closing = false
 
         suspend fun connect() {
             open()
@@ -123,6 +124,7 @@ class ClinkWebSocketAttacher(
         }
 
         fun close() {
+            closing = true
             heartbeatJob?.cancel()
             runCatching { webSocket?.close(1000, "done") }
             webSocket = null
@@ -145,10 +147,12 @@ class ClinkWebSocketAttacher(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    if (closing) return
                     fail(t)
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (closing) return
                     fail(IllegalStateException("$url 已关闭($code): $reason"))
                 }
             })
