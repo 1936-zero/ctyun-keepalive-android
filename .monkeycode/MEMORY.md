@@ -71,3 +71,18 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
   - 当前工作区已安装 JDK 17、Android SDK Platform 35、Build Tools 35.0.0、NDK 26.3，并生成 Gradle Wrapper 8.7。
   - 通过本地 vendored `ddddocr` 源码与模型、Python `onnxruntime.py` 兼容层、Java `onnxruntime-android` 桥接，已绕过 Chaquopy 缺失 `onnxruntime` wheel 的阻塞。
   - 当前项目已成功执行 `:app:assembleDebug`，生成 `app/build/outputs/apk/debug/app-debug.apk`。
+
+[日志面向程序员而非普通用户]
+- Date: 2026-04-06
+- Context: 用户在验证保活效果时要求日志更详细，便于程序员定位问题
+- Instructions:
+  - 保活日志应优先服务程序员排障，而不是仅提供面向用户的简短提示。
+  - 关键链路应记录更完整的请求阶段、分支决策、服务端返回摘要和连接结果。
+
+[pc.ctyun.cn 可在安卓手机浏览器访问]
+- Date: 2026-04-06
+- Context: Agent 在分析设备指纹与 PC 环境影响时，根据用户实机测试确认
+- Category: 环境配置
+- Instructions:
+  - `pc.ctyun.cn` 官网可在安卓手机浏览器中访问，是否能访问不等于服务端一定要求真实 Windows 运行环境。
+  - 保活链路异常更可能与请求指纹、接口参数、桌面进入后的状态上报/Clink 附着细节有关，而不是单纯因为宿主设备是手机。
