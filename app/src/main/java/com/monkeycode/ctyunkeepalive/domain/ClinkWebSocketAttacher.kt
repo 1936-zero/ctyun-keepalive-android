@@ -61,7 +61,7 @@ class ClinkWebSocketAttacher(
 
                 listOf("PLAYBACK", "RECORD", "PORT0", "PORT1", "DATA").forEach { key ->
                     runCatching { openChannel(key) }
-                        .onFailure { logRepository.append(LogLevel.WARNING, "Clink 可选通道失败 $key: ${it.message}") }
+                        .onFailure { logRepository.append(LogLevel.DEBUG, "Clink 可选通道失败 $key: ${it.message}") }
                 }
 
                 delay(holdMs)
@@ -286,7 +286,9 @@ class ClinkWebSocketAttacher(
             heartbeatJob?.cancel()
             typeWaiters.values.flatten().forEach { it.completeExceptionally(error) }
             typeWaiters.clear()
-            logRepository.append(LogLevel.ERROR, "Clink ${spec.key} 失败: ${error.message}")
+            val isConnectionReset = error.message?.contains("Connection reset") == true
+            val level = if (ready && isConnectionReset) LogLevel.DEBUG else LogLevel.ERROR
+            logRepository.append(level, "Clink ${spec.key} 失败: ${error.message}")
         }
     }
 }
