@@ -9,7 +9,7 @@
 - Kotlin + Jetpack Compose + MVVM 项目结构
 - MMKV 本地加密缓存账号、配置和运行统计
 - Chaquopy 集成 Python `ddddocr` 离线 OCR
-- ROOT 检测、前台服务、常驻通知、20 分钟固定调度
+- ROOT 保活程序、后台服务、常驻通知、20 分钟固定调度
 - 首页、账号管理、运行日志、参数配置、系统设置 5 个核心页面
 - 启动页状态检测
 - JS 对齐的设备码、登录签名、验证码重试、`connect/status/state/strategy` 主流程
