@@ -40,6 +40,13 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
   - 安卓项目主逻辑使用 Kotlin，OCR 模块使用 Python，并通过 Chaquopy 集成指定的 ddddocr 库。
   - 安卓项目采用 MVVM、Jetpack Compose、MMKV、OkHttp、Retrofit、WebSocket，并实现 ROOT 保活、Cron 定时、常驻通知和完整 UI。
 
+[本地构建优先于 GitHub Actions]
+- Date: 2026-04-06
+- Context: 用户希望后续由我直接构建 APK 并发布到 GitHub，而不是依赖较慢的 GitHub Actions
+- Instructions:
+  - 后续涉及 APK 发布时，优先由我在当前环境本地构建 APK。
+  - 如需发布到 GitHub，优先采用本地构建产物再上传发布，而不是依赖 GitHub Actions 打包。
+
 [初始仓库与环境信息]
 - Date: 2026-04-06
 - Context: Agent 在执行安卓项目初始化时发现
