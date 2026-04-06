@@ -122,3 +122,11 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 - Context: 用户要求避免应用在最近任务中被误划掉，影响后台保活
 - Instructions:
   - 应用任务默认从最近任务卡片中隐藏，防止用户误清除后台保活进程。
+
+[加入 ROOT watchdog 守护]
+- Date: 2026-04-06
+- Context: 用户要求在后台保活启动时自动拉起 ROOT 守护脚本，检测服务被杀后自动重启
+- Instructions:
+  - 提供独立的 ROOT watchdog 守护脚本。
+  - 启动后台保活时自动拉起 watchdog。
+  - watchdog 需要检测前台服务是否存活，服务被杀后自动重启。
