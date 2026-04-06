@@ -110,6 +110,13 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 - Instructions:
   - 在 README 文案中注明 `ctyun-phone-keepalive.js` 脚本为妖火 `@YH` 大佬的脚本。
 
+[README 中补充 deviceCode 获取方法]
+- Date: 2026-04-06
+- Context: 用户要求在 README 中写明如何自行抓取并填写 deviceCode
+- Instructions:
+  - README 需要说明使用电脑 Edge 或 Chrome 打开 `pm.ctyun.cn`，登录并完成短信验证后，通过 F12 在请求头中找到 `getServData` 请求里的 `ctg-devicecode` 值。
+  - README 需要说明 `deviceCode` 一般格式为 `web_phone_xxx`，并提示将该值填入 APK 的 `deviceCode` 字段。
+
 [后台保活执行后恢复待命状态]
 - Date: 2026-04-06
 - Context: 用户要求后台保活执行一轮后，首页与快捷信息的状态展示要回到待命而不是显示已停止或执行完成
