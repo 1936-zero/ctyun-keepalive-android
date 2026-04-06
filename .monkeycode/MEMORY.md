@@ -109,3 +109,10 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 - Context: 用户要求在 GitHub README 中明确说明 `ctyun-phone-keepalive.js` 脚本来源
 - Instructions:
   - 在 README 文案中注明 `ctyun-phone-keepalive.js` 脚本为妖火 `@YH` 大佬的脚本。
+
+[后台保活执行后恢复待命状态]
+- Date: 2026-04-06
+- Context: 用户要求后台保活执行一轮后，首页与快捷信息的状态展示要回到待命而不是显示已停止或执行完成
+- Instructions:
+  - 当后台保活服务仍在运行且定时任务开启时，单次保活执行完成后，UI 状态应恢复显示“后台待命”。
+  - 首页状态、快捷信息中的当前进度和通知栏状态应保持一致。
