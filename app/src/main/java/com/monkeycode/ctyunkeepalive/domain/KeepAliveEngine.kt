@@ -203,21 +203,46 @@ class KeepAliveEngine(
                 LogLevel.DEBUG,
                 "$masked [account] deviceCode=${short(deviceCode, 16)} authCache=${account.auth != null} fingerprint=${AppConfig.deviceModel}"
             )
-            var auth = account.auth ?: loginWithCaptchaRetry(account, deviceCode)
-            val devices = fetchDevicesWithRelogin(account, auth, deviceCode, masked).also {
-                auth = currentAuth(account.credential.username) ?: auth
-            }
-            logRepository.append(LogLevel.DEBUG, "$masked [list] deviceCount=${devices.size} devices=${devices.joinToString { deviceLabel(it) }}")
-            require(devices.isNotEmpty()) { "$masked 未查询到云手机" }
-            devices.forEachIndexed { index, device ->
-                keepAliveOne(auth, deviceCode, device, index + 1, devices.size, masked)
-            }
-            logRepository.append(LogLevel.SUCCESS, "$masked 保活完成")
+            val auth = account.auth ?: loginWithCaptchaRetry(account, deviceCode)
+            executeAccountFlow(account, auth, deviceCode, masked, allowListRelogin = true)
             true
+        }.recoverCatching { error ->
+            if (shouldRetryAuthExpired(error)) {
+                val detail = if (error is ApiException) "code=${error.code} message=${error.message}" else "message=${error.message}"
+                logRepository.append(LogLevel.WARNING, "$masked [auth] 主流程鉴权失效，准备整链路重试 ($detail)")
+                accountRepository.updateAuth(account.credential.username, null)
+                val deviceCode = account.deviceCode.ifBlank { buildDeviceCode(account.credential.username) }
+                val refreshed = loginWithCaptchaRetry(account, deviceCode)
+                accountRepository.updateAuth(account.credential.username, refreshed)
+                logRepository.append(LogLevel.INFO, "$masked [auth] 已自动重新登录，重试整条保活链路")
+                executeAccountFlow(account, refreshed, deviceCode, masked, allowListRelogin = false)
+                true
+            } else {
+                throw error
+            }
         }.getOrElse {
             logRepository.append(LogLevel.ERROR, "$masked 执行失败: ${it.message}")
             false
         }
+    }
+
+    private suspend fun executeAccountFlow(
+        account: StoredAccount,
+        initialAuth: AuthCache,
+        deviceCode: String,
+        masked: String,
+        allowListRelogin: Boolean,
+    ) {
+        var auth = initialAuth
+        val devices = fetchDevicesWithRelogin(account, auth, deviceCode, masked, allowListRelogin).also {
+            auth = currentAuth(account.credential.username) ?: auth
+        }
+        logRepository.append(LogLevel.DEBUG, "$masked [list] deviceCount=${devices.size} devices=${devices.joinToString { deviceLabel(it) }}")
+        require(devices.isNotEmpty()) { "$masked 未查询到云手机" }
+        devices.forEachIndexed { index, device ->
+            keepAliveOne(auth, deviceCode, device, index + 1, devices.size, masked)
+        }
+        logRepository.append(LogLevel.SUCCESS, "$masked 保活完成")
     }
 
     private suspend fun fetchDevicesWithRelogin(
@@ -225,10 +250,11 @@ class KeepAliveEngine(
         auth: AuthCache,
         deviceCode: String,
         masked: String,
+        allowRelogin: Boolean,
     ): List<DesktopDevice> {
         return runCatching { apiClient.listDevices(auth, deviceCode) }
             .recoverCatching { error ->
-                if (shouldRetryListAfterRelogin(error)) {
+                if (allowRelogin && shouldRetryAuthExpired(error)) {
                     val detail = if (error is ApiException) "code=${error.code} message=${error.message}" else "message=${error.message}"
                     logRepository.append(LogLevel.WARNING, "$masked [list] 鉴权失效，准备自动重新登录 ($detail)")
                     val refreshed = loginWithCaptchaRetry(account, deviceCode)
@@ -245,7 +271,7 @@ class KeepAliveEngine(
             .getOrThrow()
     }
 
-    private fun shouldRetryListAfterRelogin(error: Throwable): Boolean {
+    private fun shouldRetryAuthExpired(error: Throwable): Boolean {
         if (error !is ApiException) return false
         if (error.code == 40010) return true
         val message = error.message.orEmpty()
