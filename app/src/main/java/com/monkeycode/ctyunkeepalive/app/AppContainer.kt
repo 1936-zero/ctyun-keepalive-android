@@ -22,7 +22,7 @@ class AppContainer(context: Context) {
     val settingsRepository = SettingsRepository()
     val logFileStore = LogFileStore(appContext)
     val logRepository = LogRepository(logFileStore)
-    val rootManager = RootManager(logRepository)
+    val rootManager = RootManager(appContext, logRepository)
     val ocrEngine = OfflineOcrEngine(appContext, logRepository)
     val apiClient = CtyunApiClient(logRepository)
     val clinkAttacher = ClinkWebSocketAttacher(OkHttpClient(), logRepository)

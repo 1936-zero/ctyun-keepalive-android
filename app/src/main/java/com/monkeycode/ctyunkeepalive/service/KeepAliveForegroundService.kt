@@ -12,18 +12,19 @@ class KeepAliveForegroundService : Service() {
         super.onCreate()
         val app = application as MainApplication
         startForeground(app.container.notificationCenter.id(), app.container.notificationCenter.showPersistent(app.container.settingsRepository.stats().value))
-        app.container.rootManager.runKeepAliveShell()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val app = application as MainApplication
         when (intent?.action) {
             ACTION_START_SERVICE -> {
+                app.container.rootManager.startWatchdog()
                 app.container.keepAliveEngine.startBackgroundService()
             }
             ACTION_RUN_SCHEDULED -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
             ACTION_RUN_MANUAL -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)
             ACTION_STOP -> {
+                app.container.rootManager.stopWatchdog()
                 app.container.keepAliveEngine.stop()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
