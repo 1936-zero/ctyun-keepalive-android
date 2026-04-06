@@ -170,7 +170,7 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Version 1.0.4")
+            Text("Version 1.0.5")
             Text("ROOT: ${if (dashboard.rootGranted) "已授权" else "检测中"}")
             Text("Python: ${if (dashboard.pythonReady) "已加载" else "加载中"}")
             Text("OCR: ${if (dashboard.ocrReady) "已初始化" else "初始化中"}")
@@ -561,7 +561,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("关于应用", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("版本: 1.0.4")
+                Text("版本: 1.0.5")
                 Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr")
                 Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试")
             }

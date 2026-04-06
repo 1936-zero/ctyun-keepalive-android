@@ -203,7 +203,9 @@ class KeepAliveEngine(
                 "$masked [account] deviceCode=${short(deviceCode, 16)} authCache=${account.auth != null} fingerprint=${AppConfig.deviceModel}"
             )
             var auth = account.auth ?: loginWithCaptchaRetry(account, deviceCode)
-            val devices = apiClient.listDevices(auth, deviceCode)
+            val devices = fetchDevicesWithRelogin(account, auth, deviceCode, masked).also {
+                auth = currentAuth(account.credential.username) ?: auth
+            }
             logRepository.append(LogLevel.DEBUG, "$masked [list] deviceCount=${devices.size} devices=${devices.joinToString { deviceLabel(it) }}")
             require(devices.isNotEmpty()) { "$masked 未查询到云手机" }
             devices.forEachIndexed { index, device ->
@@ -211,19 +213,35 @@ class KeepAliveEngine(
             }
             logRepository.append(LogLevel.SUCCESS, "$masked 保活完成")
             true
-        }.recoverCatching { error ->
-            if (error is ApiException && error.code == 40010) {
-                val refreshed = loginWithCaptchaRetry(account, buildDeviceCode(account.credential.username))
-                accountRepository.updateAuth(account.credential.username, refreshed)
-                logRepository.append(LogLevel.INFO, "$masked 鉴权过期，已自动重新登录")
-                true
-            } else {
-                throw error
-            }
         }.getOrElse {
             logRepository.append(LogLevel.ERROR, "$masked 执行失败: ${it.message}")
             false
         }
+    }
+
+    private suspend fun fetchDevicesWithRelogin(
+        account: StoredAccount,
+        auth: AuthCache,
+        deviceCode: String,
+        masked: String,
+    ): List<DesktopDevice> {
+        return runCatching { apiClient.listDevices(auth, deviceCode) }
+            .recoverCatching { error ->
+                if (error is ApiException && error.code == 40010) {
+                    logRepository.append(LogLevel.WARNING, "$masked [list] 鉴权失效，准备自动重新登录")
+                    val refreshed = loginWithCaptchaRetry(account, deviceCode)
+                    accountRepository.updateAuth(account.credential.username, refreshed)
+                    logRepository.append(LogLevel.INFO, "$masked [list] 已自动重新登录，重试获取设备列表")
+                    apiClient.listDevices(refreshed, deviceCode)
+                } else {
+                    throw error
+                }
+            }
+            .getOrThrow()
+    }
+
+    private fun currentAuth(username: String): AuthCache? {
+        return accountRepository.accounts().value.firstOrNull { it.credential.username == username }?.auth
     }
 
     private suspend fun loginWithCaptchaRetry(account: StoredAccount, deviceCode: String): AuthCache {
