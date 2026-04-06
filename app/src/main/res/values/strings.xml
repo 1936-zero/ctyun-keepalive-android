@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">天翼云手机保活</string>
+    <string name="notification_channel_name">保活服务</string>
+    <string name="notification_channel_desc">显示保活执行状态、日志和下次执行时间</string>
+</resources>
