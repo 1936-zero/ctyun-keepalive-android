@@ -103,3 +103,9 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 - Instructions:
   - 所有 UI、日志、通知和 GitHub 文案统一使用“后台保活”或“后台保活服务”。
   - 避免再出现“前台保活服务”等混用字样。
+
+[README 中保留脚本来源署名]
+- Date: 2026-04-06
+- Context: 用户要求在 GitHub README 中明确说明 `ctyun-phone-keepalive.js` 脚本来源
+- Instructions:
+  - 在 README 文案中注明 `ctyun-phone-keepalive.js` 脚本为妖火 `@YH` 大佬的脚本。
