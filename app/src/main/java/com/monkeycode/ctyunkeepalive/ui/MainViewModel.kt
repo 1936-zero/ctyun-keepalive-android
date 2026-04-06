@@ -7,7 +7,9 @@ import com.monkeycode.ctyunkeepalive.core.AppSettings
 import com.monkeycode.ctyunkeepalive.core.DashboardState
 import com.monkeycode.ctyunkeepalive.core.LogEntry
 import com.monkeycode.ctyunkeepalive.core.StoredAccount
+import com.monkeycode.ctyunkeepalive.domain.KeepAliveEngine
 import com.monkeycode.ctyunkeepalive.service.KeepAliveForegroundService
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -18,18 +20,22 @@ data class MainUiState(
     val accounts: List<StoredAccount> = emptyList(),
     val settings: AppSettings = AppSettings(),
     val logs: List<LogEntry> = emptyList(),
+    val logDirectoryPath: String = "",
 )
 
 class MainViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
+    val manualRunCompleted: SharedFlow<Long> = container.keepAliveEngine.manualRunCompleted()
+
     val uiState: StateFlow<MainUiState> = combine(
         container.keepAliveEngine.dashboard(),
         container.accountRepository.accounts(),
         container.settingsRepository.settings(),
         container.logRepository.logs(),
-    ) { dashboard, accounts, settings, logs ->
-        MainUiState(dashboard = dashboard, accounts = accounts, settings = settings, logs = logs)
+        container.logFileStore.displayPath(),
+    ) { dashboard, accounts, settings, logs, logDirectoryPath ->
+        MainUiState(dashboard = dashboard, accounts = accounts, settings = settings, logs = logs, logDirectoryPath = logDirectoryPath)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 
     init {
@@ -43,6 +49,16 @@ class MainViewModel(
     fun stop(context: android.content.Context) {
         KeepAliveForegroundService.start(context, KeepAliveForegroundService.ACTION_STOP)
     }
+
+    fun runImmediateTest() {
+        container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)
+    }
+
+    fun requiredLogPermissions(): List<String> = container.logFileStore.requiredPermissions()
+
+    fun hasLogPermissions(context: android.content.Context): Boolean = container.logFileStore.hasRequiredPermissions(context)
+
+    fun openLogFolder(context: android.content.Context): Boolean = container.logFileStore.openLogFolder(context)
 
     fun importAccounts(raw: String) = container.keepAliveEngine.importAccounts(raw)
 

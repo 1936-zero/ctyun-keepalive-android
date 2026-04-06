@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import androidx.core.content.ContextCompat
 import com.monkeycode.ctyunkeepalive.app.MainApplication
+import com.monkeycode.ctyunkeepalive.domain.KeepAliveEngine
 
 class KeepAliveForegroundService : Service() {
     override fun onCreate() {
@@ -17,7 +18,7 @@ class KeepAliveForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val app = application as MainApplication
         when (intent?.action) {
-            ACTION_START -> app.container.keepAliveEngine.startNow()
+            ACTION_START -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
             ACTION_STOP -> app.container.keepAliveEngine.stop()
         }
         return START_STICKY

@@ -3,6 +3,8 @@ package com.monkeycode.ctyunkeepalive.ui
 import android.content.Intent
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,14 +21,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -64,6 +69,7 @@ import com.monkeycode.ctyunkeepalive.core.LogLevel
 import com.monkeycode.ctyunkeepalive.core.StoredAccount
 import com.monkeycode.ctyunkeepalive.core.formatTime
 import com.monkeycode.ctyunkeepalive.core.maskAccount
+import kotlinx.coroutines.flow.collect
 
 private enum class MainTab(val title: String) {
     Home("首页"),
@@ -81,6 +87,7 @@ fun CtyunApp(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
     var showSplash by rememberSaveable { mutableStateOf(true) }
     var currentTab by rememberSaveable {
         mutableStateOf(if (initialTab == "logs") MainTab.Logs else MainTab.Home)
@@ -89,6 +96,19 @@ fun CtyunApp(
     androidx.compose.runtime.LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1200)
         showSplash = false
+    }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val permissions = viewModel.requiredLogPermissions().toTypedArray()
+        if (permissions.isNotEmpty() && !viewModel.hasLogPermissions(context)) {
+            permissionLauncher.launch(permissions)
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        viewModel.manualRunCompleted.collect {
+            snackbarHostState.showSnackbar("保活测试完成，日志已保存到本地文件夹")
+        }
     }
 
     MaterialTheme {
@@ -103,7 +123,7 @@ fun CtyunApp(
                     listOf(
                         MainTab.Home to Icons.Default.Dashboard,
                         MainTab.Accounts to Icons.Default.ManageAccounts,
-                        MainTab.Logs to Icons.Default.ListAlt,
+                        MainTab.Logs to Icons.AutoMirrored.Filled.ListAlt,
                         MainTab.Config to Icons.Default.Build,
                         MainTab.System to Icons.Default.Settings,
                     ).forEach { (tab, icon) ->
@@ -120,7 +140,7 @@ fun CtyunApp(
             when (currentTab) {
                 MainTab.Home -> HomeScreen(uiState, padding, context, viewModel)
                 MainTab.Accounts -> AccountsScreen(uiState.accounts, padding, viewModel)
-                MainTab.Logs -> LogsScreen(uiState.logs, padding, viewModel)
+                MainTab.Logs -> LogsScreen(uiState.logs, uiState.logDirectoryPath, padding, viewModel)
                 MainTab.Config -> ConfigScreen(uiState.settings, padding, viewModel)
                 MainTab.System -> SystemScreen(uiState, padding, viewModel)
             }
@@ -154,6 +174,7 @@ private fun HomeScreen(
     viewModel: MainViewModel,
 ) {
     val dashboard = uiState.dashboard
+    val clipboard = LocalClipboardManager.current
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -181,10 +202,29 @@ private fun HomeScreen(
                             Spacer(Modifier.size(6.dp))
                             Text("启动保活")
                         }
+                        Button(
+                            onClick = { viewModel.runImmediateTest() },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A00)),
+                        ) {
+                            Text("立即测试保活")
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedButton(onClick = { viewModel.stop(context) }, modifier = Modifier.weight(1f)) {
                             Text("停止服务")
                         }
+                        OutlinedButton(
+                            onClick = {
+                                clipboard.setText(AnnotatedString(uiState.logDirectoryPath))
+                                Toast.makeText(context, "日志路径已复制", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("复制日志路径")
+                        }
                     }
+                    Text("日志已保存到: ${uiState.logDirectoryPath}", color = MaterialTheme.colorScheme.primary)
                     if (!dashboard.rootGranted) {
                         Text("提示: 当前 ROOT 未授权，系统级保活能力不会生效。", color = MaterialTheme.colorScheme.error)
                     }
@@ -337,10 +377,10 @@ private fun AccountDialog(
 }
 
 @Composable
-private fun LogsScreen(logs: List<LogEntry>, padding: PaddingValues, viewModel: MainViewModel) {
+private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: PaddingValues, viewModel: MainViewModel) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    val allLogs = remember(logs) { logs.joinToString("\n") { it.message } }
+    val allLogs = remember(logs) { logs.joinToString("\n") { "${formatTime(it.timestamp)} ${it.message}" } }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -363,6 +403,27 @@ private fun LogsScreen(logs: List<LogEntry>, padding: PaddingValues, viewModel: 
                 context.startActivity(Intent.createChooser(intent, "导出日志"))
             }, modifier = Modifier.weight(1f)) { Text("导出日志") }
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = {
+                val opened = viewModel.openLogFolder(context)
+                if (!opened) {
+                    Toast.makeText(context, "无法直接打开文件夹，请手动前往 $logDirectoryPath", Toast.LENGTH_LONG).show()
+                }
+            }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.FolderOpen, contentDescription = null)
+                Spacer(Modifier.size(6.dp))
+                Text("打开日志文件夹")
+            }
+            OutlinedButton(onClick = {
+                clipboard.setText(AnnotatedString(logDirectoryPath))
+                Toast.makeText(context, "日志路径已复制", Toast.LENGTH_SHORT).show()
+            }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Default.ContentCopy, contentDescription = null)
+                Spacer(Modifier.size(6.dp))
+                Text("复制日志路径")
+            }
+        }
+        Text("当前日志目录: $logDirectoryPath", style = MaterialTheme.typography.bodySmall)
         Card(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier
@@ -373,7 +434,7 @@ private fun LogsScreen(logs: List<LogEntry>, padding: PaddingValues, viewModel: 
             ) {
                 items(logs, key = { it.id }) { item ->
                     Text(
-                        text = item.message,
+                        text = "${formatTime(item.timestamp)} ${item.message}",
                         color = when (item.level) {
                             LogLevel.INFO -> Color.White
                             LogLevel.SUCCESS -> Color(0xFF5CE27B)

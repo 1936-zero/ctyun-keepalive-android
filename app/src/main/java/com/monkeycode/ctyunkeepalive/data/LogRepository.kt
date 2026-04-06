@@ -6,13 +6,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class LogRepository {
+class LogRepository(
+    private val fileStore: LogFileStore? = null,
+) {
     private val state = MutableStateFlow<List<LogEntry>>(emptyList())
 
     fun logs(): StateFlow<List<LogEntry>> = state.asStateFlow()
 
     fun append(level: LogLevel, message: String) {
-        state.value = (state.value + LogEntry(level = level, message = message)).takeLast(500)
+        val entry = LogEntry(level = level, message = message)
+        state.value = (state.value + entry).takeLast(500)
+        fileStore?.append(entry)
     }
 
     fun clear() {

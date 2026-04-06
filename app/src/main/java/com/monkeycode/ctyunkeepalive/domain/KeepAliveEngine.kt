@@ -33,8 +33,11 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -53,8 +56,14 @@ class KeepAliveEngine(
     private val notificationCenter: NotificationCenter,
     private val scheduler: CronScheduler,
 ) {
+    enum class RunTrigger {
+        SCHEDULED,
+        MANUAL,
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val dashboard = MutableStateFlow(DashboardState())
+    private val manualRunCompleted = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     private var runningJob: Job? = null
 
     init {
@@ -70,6 +79,8 @@ class KeepAliveEngine(
 
     fun dashboard(): StateFlow<DashboardState> = dashboard.asStateFlow()
 
+    fun manualRunCompleted(): SharedFlow<Long> = manualRunCompleted.asSharedFlow()
+
     fun bootstrap() {
         val rootGranted = rootManager.ensureRoot()
         val pythonReady = ocrEngine.ensureReady()
@@ -79,8 +90,13 @@ class KeepAliveEngine(
         scheduleIfNeeded(settingsRepository.settings().value)
     }
 
-    fun startNow() {
-        if (runningJob?.isActive == true) return
+    fun startNow(trigger: RunTrigger = RunTrigger.SCHEDULED) {
+        if (runningJob?.isActive == true) {
+            if (trigger == RunTrigger.MANUAL) {
+                logRepository.append(LogLevel.WARNING, "已有保活任务正在执行，请稍后再试")
+            }
+            return
+        }
         runningJob = scope.launch {
             val settings = settingsRepository.settings().value
             val accounts = accountRepository.accounts().value
@@ -88,7 +104,10 @@ class KeepAliveEngine(
                 logRepository.append(LogLevel.WARNING, "没有可执行账号，请先添加天翼云手机账号")
                 return@launch
             }
-            updateStats(settingsRepository.stats().value.copy(running = true, currentProgress = "正在执行"))
+            if (trigger == RunTrigger.MANUAL) {
+                logRepository.append(LogLevel.INFO, "立即测试保活已启动，开始执行全部账号")
+            }
+            updateStats(settingsRepository.stats().value.copy(running = true, currentProgress = if (trigger == RunTrigger.MANUAL) "立即测试中" else "正在执行"))
             val semaphore = Semaphore(settings.concurrency.coerceAtLeast(1))
             var success = 0
             var failed = 0
@@ -114,6 +133,9 @@ class KeepAliveEngine(
                 )
             )
             notificationCenter.showPersistent(settingsRepository.stats().value)
+            if (trigger == RunTrigger.MANUAL) {
+                manualRunCompleted.tryEmit(System.currentTimeMillis())
+            }
         }
     }
 
@@ -189,6 +211,7 @@ class KeepAliveEngine(
                 if (error.code !in listOf(51030, 51031, 51040, 51085) || round >= AppConfig.maxCaptchaRetries) throw error
                 val image = apiClient.fetchCaptcha(account.credential.username, deviceCode)
                 captcha = ocrEngine.classify(image)
+                logRepository.append(LogLevel.INFO, "${maskAccount(account.credential.username)} OCR 识别结果: $captcha")
                 logRepository.append(LogLevel.WARNING, "${maskAccount(account.credential.username)} 触发验证码，第 ${round + 1} 次 OCR 重试")
             }
         }

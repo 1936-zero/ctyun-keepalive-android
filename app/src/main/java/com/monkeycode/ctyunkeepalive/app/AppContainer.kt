@@ -3,6 +3,7 @@ package com.monkeycode.ctyunkeepalive.app
 import android.content.Context
 import com.monkeycode.ctyunkeepalive.core.AppConfig
 import com.monkeycode.ctyunkeepalive.data.AccountRepository
+import com.monkeycode.ctyunkeepalive.data.LogFileStore
 import com.monkeycode.ctyunkeepalive.data.LogRepository
 import com.monkeycode.ctyunkeepalive.data.SettingsRepository
 import com.monkeycode.ctyunkeepalive.domain.ClinkWebSocketAttacher
@@ -19,7 +20,8 @@ class AppContainer(context: Context) {
 
     val accountRepository = AccountRepository()
     val settingsRepository = SettingsRepository()
-    val logRepository = LogRepository()
+    val logFileStore = LogFileStore(appContext)
+    val logRepository = LogRepository(logFileStore)
     val rootManager = RootManager(logRepository)
     val ocrEngine = OfflineOcrEngine(appContext, logRepository)
     val apiClient = CtyunApiClient(logRepository)
