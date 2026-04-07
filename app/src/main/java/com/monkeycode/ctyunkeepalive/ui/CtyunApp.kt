@@ -10,8 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -20,9 +22,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -64,18 +68,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.monkeycode.ctyunkeepalive.core.AppConfig
 import com.monkeycode.ctyunkeepalive.core.AppSettings
 import com.monkeycode.ctyunkeepalive.core.LogEntry
@@ -143,11 +149,6 @@ fun CtyunApp(
                 .fillMaxSize()
                 .background(VaporBackground)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0x0A00FFFF))
-            )
             Scaffold(
                 containerColor = Color.Transparent,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -156,8 +157,7 @@ fun CtyunApp(
                         containerColor = VaporPanelBg,
                         tonalElevation = 0.dp,
                         modifier = Modifier
-                            .border(1.dp, VaporBorder)
-                            .shadow(12.dp, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp), ambientColor = VaporGlow, spotColor = VaporGlow),
+                            .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), ambientColor = VaporShadowDark, spotColor = VaporShadowDark),
                     ) {
                         listOf(
                             MainTab.Home to Icons.Default.Dashboard,
@@ -172,11 +172,11 @@ fun CtyunApp(
                                 icon = { Icon(icon, contentDescription = tab.title) },
                                 label = { Text(tab.title) },
                                 colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                    selectedIconColor = VaporBackground,
-                                    selectedTextColor = VaporBackground,
-                                    indicatorColor = VaporCyan,
-                                    unselectedIconColor = Color(0xFFB6E7F2),
-                                    unselectedTextColor = Color(0xFFB6E7F2),
+                                    selectedIconColor = VaporAccent,
+                                    selectedTextColor = VaporAccent,
+                                    indicatorColor = VaporInset,
+                                    unselectedIconColor = VaporMuted,
+                                    unselectedTextColor = VaporMuted,
                                 ),
                             )
                         }
@@ -206,12 +206,12 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
     ) {
         VaporPanel(Modifier.padding(24.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                Text("Version 1.0.12", color = VaporCyan)
+                Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = VaporInk)
+                Text("Version 1.0.12", color = VaporAccent)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporCyan else VaporYellow)
-                    StatusChip("PY", if (dashboard.pythonReady) "已加载" else "加载中", VaporMagenta)
-                    StatusChip("OCR", if (dashboard.ocrReady) "已初始化" else "初始化中", VaporYellow)
+                    StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporSuccess else VaporWarning)
+                    StatusChip("PY", if (dashboard.pythonReady) "已加载" else "加载中", VaporAccent)
+                    StatusChip("OCR", if (dashboard.ocrReady) "已初始化" else "初始化中", VaporTeal)
                 }
             }
         }
@@ -247,12 +247,12 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("后台保活总状态", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("后台保活总状态", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = VaporInk)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StatusChip("状态", statusText, if (statusText == "运行中") VaporMagenta else VaporCyan)
-                        StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporCyan else VaporYellow)
-                        StatusChip("OCR", if (dashboard.ocrReady) "已就绪" else "未初始化", VaporYellow)
-                        StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporCyan)
+                        StatusChip("状态", statusText, if (statusText == "运行中") VaporAccent else VaporTeal)
+                        StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporSuccess else VaporWarning)
+                        StatusChip("OCR", if (dashboard.ocrReady) "已就绪" else "未初始化", VaporTeal)
+                        StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporAccent)
                     }
                 }
             }
@@ -260,7 +260,7 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("控制台", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("控制台", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = VaporInk)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         PixelPrimaryButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -283,13 +283,13 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("最近结果", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(lastResult, color = VaporRed, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("最近结果", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = VaporInk)
+                    Text(lastResult, color = VaporAccent, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         StatCard("成功账号", uiState.dashboard.runStats.successAccounts.toString(), Modifier.weight(1f))
                         StatCard("失败账号", uiState.dashboard.runStats.failedAccounts.toString(), Modifier.weight(1f))
                     }
-                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = Color(0xFFE5FBFF))
+                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = VaporInk)
                     Text("最近执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}", color = VaporMuted)
                 }
             }
@@ -302,7 +302,7 @@ private fun StatCard(title: String, value: String, modifier: Modifier = Modifier
     VaporPanel(modifier = modifier, innerPadding = 16.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.bodySmall, color = VaporMuted)
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = VaporCyan)
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = VaporAccent)
         }
     }
 }
@@ -363,7 +363,7 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                                 Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                                StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporYellow else VaporCyan)
+                                StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporWarning else VaporAccent)
                             }
                             Text(item.deviceCode.ifBlank { "未生成" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = VaporMuted)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -466,10 +466,10 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
                     Text(
                         text = "${formatTime(item.timestamp)} ${item.message}",
                         color = when (item.level) {
-                            LogLevel.DEBUG -> VaporBlue
+                            LogLevel.DEBUG -> VaporAccent
                             LogLevel.INFO -> VaporInk
-                            LogLevel.SUCCESS -> VaporGreen
-                            LogLevel.WARNING -> VaporYellow
+                            LogLevel.SUCCESS -> VaporSuccess
+                            LogLevel.WARNING -> VaporWarning
                             LogLevel.ERROR -> VaporRed
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -480,18 +480,18 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
     }
 }
 
-private val VaporBackground = Color(0xFF050816)
-private val VaporPanelBg = Color(0xFF0B1120)
-private val VaporInk = Color(0xFFE6FBFF)
-private val VaporBorder = Color(0x4D22D3EE)
-private val VaporGlow = Color(0x9900FFFF)
-private val VaporRed = Color(0xFFFF4D6D)
-private val VaporBlue = Color(0xFF65B7FF)
-private val VaporGreen = Color(0xFF63F5B2)
-private val VaporYellow = Color(0xFFFFD166)
-private val VaporMagenta = Color(0xFFFF00C8)
-private val VaporCyan = Color(0xFF00F0FF)
-private val VaporMuted = Color(0xFF8FB4C1)
+private val VaporBackground = Color(0xFFE0E5EC)
+private val VaporPanelBg = Color(0xFFE0E5EC)
+private val VaporInset = Color(0xFFD4DAE3)
+private val VaporInk = Color(0xFF3D4852)
+private val VaporMuted = Color(0xFF6B7280)
+private val VaporAccent = Color(0xFF6C63FF)
+private val VaporTeal = Color(0xFF38B2AC)
+private val VaporSuccess = Color(0xFF22C55E)
+private val VaporWarning = Color(0xFFF59E0B)
+private val VaporRed = Color(0xFFEF4444)
+private val VaporShadowDark = Color(0x99A3B1C6)
+private val VaporShadowLight = Color(0x99FFFFFF)
 
 @Composable
 private fun VaporPanel(
@@ -500,23 +500,58 @@ private fun VaporPanel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(
-        modifier = modifier.padding(end = 4.dp, bottom = 4.dp)
+        modifier = modifier
     ) {
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .padding(start = 4.dp, top = 4.dp)
-                .background(VaporGlow.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                .offset((-6).dp, (-6).dp)
+                .background(VaporShadowLight, RoundedCornerShape(32.dp))
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .offset(6.dp, 6.dp)
+                .background(VaporShadowDark, RoundedCornerShape(32.dp))
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(VaporPanelBg)
-                .border(1.dp, VaporBorder, RoundedCornerShape(12.dp))
-                .shadow(12.dp, RoundedCornerShape(12.dp), ambientColor = VaporGlow, spotColor = VaporGlow)
+                .shadow(0.dp, RoundedCornerShape(32.dp))
                 .padding(innerPadding)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+        }
+    }
+}
+
+@Composable
+private fun InsetWell(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit = {}) {
+    Box(
+        modifier = modifier
+            .background(VaporInset, RoundedCornerShape(20.dp))
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .offset(4.dp, 4.dp)
+                .background(VaporShadowDark.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .offset((-4).dp, (-4).dp)
+                .background(VaporShadowLight.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(VaporInset, RoundedCornerShape(20.dp))
+                .padding(8.dp)
+        ) {
+            content()
         }
     }
 }
@@ -526,14 +561,14 @@ private fun StatusChip(label: String, value: String, color: Color) {
     Row(
         modifier = Modifier
             .background(color)
-            .border(1.dp, color.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
-            .shadow(8.dp, RoundedCornerShape(10.dp), ambientColor = color.copy(alpha = 0.5f), spotColor = color.copy(alpha = 0.5f))
+            .padding(2.dp)
+            .clip(RoundedCornerShape(999.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = Color.Black, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        Text(value, color = Color.Black, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        Text(value, color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -542,8 +577,8 @@ private fun PixelPrimaryButton(onClick: () -> Unit, modifier: Modifier = Modifie
     Button(
         onClick = onClick,
         modifier = modifier.pixelShadow(),
-        shape = RoundedCornerShape(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = VaporMagenta, contentColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = VaporAccent, contentColor = Color.White),
     ) { content() }
 }
 
@@ -552,8 +587,8 @@ private fun PixelAccentButton(onClick: () -> Unit, modifier: Modifier = Modifier
     Button(
         onClick = onClick,
         modifier = modifier.pixelShadow(),
-        shape = RoundedCornerShape(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = VaporYellow, contentColor = Color.Black),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = VaporTeal, contentColor = Color.White),
     ) { content() }
 }
 
@@ -562,8 +597,8 @@ private fun PixelOutlineButton(onClick: () -> Unit, modifier: Modifier = Modifie
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.pixelShadow(),
-        shape = RoundedCornerShape(0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, VaporBorder),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Transparent),
         colors = ButtonDefaults.outlinedButtonColors(containerColor = VaporPanelBg, contentColor = VaporInk),
     ) { content() }
 }
@@ -575,26 +610,24 @@ private fun PixelTextField(value: String, onValueChange: (String) -> Unit, label
         onValueChange = onValueChange,
         label = { Text(label) },
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = VaporCyan,
-            unfocusedBorderColor = VaporBorder,
+            focusedBorderColor = Color.Transparent,
+            unfocusedBorderColor = Color.Transparent,
             focusedTextColor = VaporInk,
             unfocusedTextColor = VaporInk,
-            focusedLabelColor = VaporCyan,
+            focusedLabelColor = VaporAccent,
             unfocusedLabelColor = VaporMuted,
             focusedContainerColor = VaporPanelBg,
             unfocusedContainerColor = VaporPanelBg,
-            cursorColor = VaporCyan,
+            cursorColor = VaporAccent,
         )
     )
 }
 
 private fun Modifier.pixelShadow(shape: Shape = RoundedCornerShape(0.dp)): Modifier {
     return this
-        .padding(end = 4.dp, bottom = 4.dp)
-        .background(VaporGlow.copy(alpha = 0.45f), shape)
-        .padding(start = 4.dp, top = 4.dp)
+        .shadow(8.dp, shape, ambientColor = VaporShadowDark, spotColor = VaporShadowDark)
 }
 
 @Composable
@@ -695,6 +728,41 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
                 Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试", color = VaporMuted)
             }
         }
+        VaporPanel {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("支持项目", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                Text("如果这个项目对你有帮助，可以通过下方收款码支持持续维护。", color = VaporMuted)
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    DonationCard(
+                        title = "微信打赏",
+                        imageUrl = "https://raw.githubusercontent.com/1936-zero/ctyun-keepalive-android/260406-feat-ctyun-android-app/%E5%BE%AE%E4%BF%A1%E6%94%B6%E6%AC%BE%E7%A0%81.jpg",
+                        modifier = Modifier.weight(1f),
+                    )
+                    DonationCard(
+                        title = "支付宝打赏",
+                        imageUrl = "https://raw.githubusercontent.com/1936-zero/ctyun-keepalive-android/260406-feat-ctyun-android-app/%E6%94%AF%E4%BB%98%E5%AE%9D%E6%94%B6%E6%AC%BE%E7%A0%81.jpg",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
         PixelOutlineButton(onClick = { confirmExit = true }, modifier = Modifier.fillMaxWidth()) { Text("退出登录并清空所有本地数据") }
+    }
+}
+
+@Composable
+private fun DonationCard(title: String, imageUrl: String, modifier: Modifier = Modifier) {
+    VaporPanel(modifier = modifier, innerPadding = 12.dp) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, color = VaporInk, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f),
+                contentScale = ContentScale.Crop,
+            )
+        }
     }
 }

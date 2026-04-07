@@ -117,6 +117,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
