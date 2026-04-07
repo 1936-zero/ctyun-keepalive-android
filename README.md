@@ -22,9 +22,6 @@
 
   <img width="260" alt="074be9777bdde91a37e3eeeef11ff23e" src="https://github.com/user-attachments/assets/a597b64d-ff97-44af-b55d-ce261ad25ac9" />
 
-   
-
-
 说明：
 
 - `deviceCode` 一般不要在不同账号之间混用
@@ -58,13 +55,6 @@ app/src/main/python/
   ocr_bridge.py  ddddocr 离线识别入口
 ```
 
-## 打赏
-![5762fb4431be7951f6f55d529545efd9](https://github.com/user-attachments/assets/d721cf80-fecf-4dba-8a4e-edf300b530c0)
-![f6acf0283e60f03657151b2526bfb753](https://github.com/user-attachments/assets/16c681fd-ac32-4402-82a2-44b91d1ccc88)
-
-
-
-
 
 ## 编译
 
@@ -87,3 +77,11 @@ app/src/main/python/
 当前工作区已经补齐 `JDK 17`、`Android SDK` 和 `Gradle Wrapper`，并完成了 `Chaquopy + 本地 vendored ddddocr + Java onnxruntime-android 桥接` 方案。
 
 当前已成功生成 Debug APK：`app/build/outputs/apk/debug/app-debug.apk`
+
+## 打赏
+
+<img src="![f6acf0283e60f03657151b2526bfb753](https://github.com/user-attachments/assets/83f6ea16-6fba-4c93-a280-d399ee461159)
+" width="200">
+
+<img src="![5762fb4431be7951f6f55d529545efd9](https://github.com/user-attachments/assets/74ce24ae-f56c-47cc-9954-f730b34e9abd)
+" width="200">
