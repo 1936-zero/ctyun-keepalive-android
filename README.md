@@ -79,6 +79,6 @@ app/src/main/python/
 当前已成功生成 Debug APK：`app/build/outputs/apk/debug/app-debug.apk`
 
 ## 打赏
-<img width="240" alt="5762fb4431be7951f6f55d529545efd9" src="https://github.com/user-attachments/assets/ad9ea26e-75b2-4edf-8971-aade7ef117e6" />
+<img height="240" alt="5762fb4431be7951f6f55d529545efd9" src="https://github.com/user-attachments/assets/ad9ea26e-75b2-4edf-8971-aade7ef117e6" />
 
-<img width="240" alt="f6acf0283e60f03657151b2526bfb753" src="https://github.com/user-attachments/assets/e35fdb61-14a4-44b3-a4e8-c7d0ae782db3" />
+<img height="240" alt="f6acf0283e60f03657151b2526bfb753" src="https://github.com/user-attachments/assets/e35fdb61-14a4-44b3-a4e8-c7d0ae782db3" />
