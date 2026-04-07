@@ -18,7 +18,7 @@
 6. 在请求头中找到 `ctg-devicecode`
 7. 复制这个值，通常格式为 `web_phone_xxx`
 8. 打开 APK，在账号设置里启用“自定义 deviceCode”，把复制到的值填进去
-  <img width="360" alt="1d06bd040f8a8765dbc6ea637aede3fa" src="https://github.com/user-attachments/assets/52291577-ee0d-4425-b904-f44842cda28b" />
+  <img width="" alt="1d06bd040f8a8765dbc6ea637aede3fa" src="https://github.com/user-attachments/assets/52291577-ee0d-4425-b904-f44842cda28b" />
 
   <img width="260" alt="074be9777bdde91a37e3eeeef11ff23e" src="https://github.com/user-attachments/assets/a597b64d-ff97-44af-b55d-ce261ad25ac9" />
 
