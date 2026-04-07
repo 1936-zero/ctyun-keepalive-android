@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.monkeycode.ctyunkeepalive.R
 import com.monkeycode.ctyunkeepalive.core.AppConfig
 import com.monkeycode.ctyunkeepalive.core.AppSettings
 import com.monkeycode.ctyunkeepalive.core.LogEntry
@@ -156,8 +157,7 @@ fun CtyunApp(
                     NavigationBar(
                         containerColor = VaporPanelBg,
                         tonalElevation = 0.dp,
-                        modifier = Modifier
-                            .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), ambientColor = VaporShadowDark, spotColor = VaporShadowDark),
+                        modifier = Modifier,
                     ) {
                         listOf(
                             MainTab.Home to Icons.Default.Dashboard,
@@ -362,7 +362,7 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
                     VaporPanel(modifier = Modifier.fillMaxWidth(), innerPadding = 14.dp) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = VaporInk)
                                 StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporWarning else VaporAccent)
                             }
                             Text(item.deviceCode.ifBlank { "未生成" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = VaporMuted)
@@ -501,28 +501,12 @@ private fun VaporPanel(
 ) {
     Box(
         modifier = modifier
+            .fillMaxWidth()
+            .background(VaporPanelBg, RoundedCornerShape(32.dp))
+            .border(1.dp, VaporInset, RoundedCornerShape(32.dp))
+            .padding(innerPadding)
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .offset((-6).dp, (-6).dp)
-                .background(VaporShadowLight, RoundedCornerShape(32.dp))
-        )
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .offset(6.dp, 6.dp)
-                .background(VaporShadowDark, RoundedCornerShape(32.dp))
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(VaporPanelBg)
-                .shadow(0.dp, RoundedCornerShape(32.dp))
-                .padding(innerPadding)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
-        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
 }
 
@@ -531,28 +515,10 @@ private fun InsetWell(modifier: Modifier = Modifier, content: @Composable BoxSco
     Box(
         modifier = modifier
             .background(VaporInset, RoundedCornerShape(20.dp))
+            .border(1.dp, VaporPanelBg, RoundedCornerShape(20.dp))
             .padding(8.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .offset(4.dp, 4.dp)
-                .background(VaporShadowDark.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-        )
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .offset((-4).dp, (-4).dp)
-                .background(VaporShadowLight.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(VaporInset, RoundedCornerShape(20.dp))
-                .padding(8.dp)
-        ) {
-            content()
-        }
+        content()
     }
 }
 
@@ -627,7 +593,6 @@ private fun PixelTextField(value: String, onValueChange: (String) -> Unit, label
 
 private fun Modifier.pixelShadow(shape: Shape = RoundedCornerShape(0.dp)): Modifier {
     return this
-        .shadow(8.dp, shape, ambientColor = VaporShadowDark, spotColor = VaporShadowDark)
 }
 
 @Composable
@@ -735,12 +700,12 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
                     DonationCard(
                         title = "微信打赏",
-                        imageUrl = "https://raw.githubusercontent.com/1936-zero/ctyun-keepalive-android/260406-feat-ctyun-android-app/%E5%BE%AE%E4%BF%A1%E6%94%B6%E6%AC%BE%E7%A0%81.jpg",
+                        imageRes = R.drawable.wechat_donate,
                         modifier = Modifier.weight(1f),
                     )
                     DonationCard(
                         title = "支付宝打赏",
-                        imageUrl = "https://raw.githubusercontent.com/1936-zero/ctyun-keepalive-android/260406-feat-ctyun-android-app/%E6%94%AF%E4%BB%98%E5%AE%9D%E6%94%B6%E6%AC%BE%E7%A0%81.jpg",
+                        imageRes = R.drawable.alipay_donate,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -751,12 +716,12 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
 }
 
 @Composable
-private fun DonationCard(title: String, imageUrl: String, modifier: Modifier = Modifier) {
+private fun DonationCard(title: String, imageRes: Int, modifier: Modifier = Modifier) {
     VaporPanel(modifier = modifier, innerPadding = 12.dp) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, color = VaporInk, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             AsyncImage(
-                model = imageUrl,
+                model = imageRes,
                 contentDescription = title,
                 modifier = Modifier
                     .fillMaxWidth()
