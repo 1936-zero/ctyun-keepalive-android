@@ -207,7 +207,7 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
         VaporPanel(Modifier.padding(24.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                Text("Version 1.0.11", color = VaporCyan)
+                Text("Version 1.0.12", color = VaporCyan)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporCyan else VaporYellow)
                     StatusChip("PY", if (dashboard.pythonReady) "已加载" else "加载中", VaporMagenta)
@@ -690,7 +690,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
         VaporPanel {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("关于应用", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
-                Text("版本: 1.0.11", color = VaporInk)
+                Text("版本: 1.0.12", color = VaporInk)
                 Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr", color = VaporInk)
                 Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试", color = VaporMuted)
             }
