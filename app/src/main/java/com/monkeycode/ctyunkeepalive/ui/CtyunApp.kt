@@ -64,6 +64,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
@@ -142,6 +143,11 @@ fun CtyunApp(
                 .fillMaxSize()
                 .background(VaporBackground)
         ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x0A00FFFF))
+            )
             Scaffold(
                 containerColor = Color.Transparent,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -149,7 +155,9 @@ fun CtyunApp(
                     NavigationBar(
                         containerColor = VaporPanelBg,
                         tonalElevation = 0.dp,
-                        modifier = Modifier.border(4.dp, VaporInk),
+                        modifier = Modifier
+                            .border(1.dp, VaporBorder)
+                            .shadow(12.dp, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp), ambientColor = VaporGlow, spotColor = VaporGlow),
                     ) {
                         listOf(
                             MainTab.Home to Icons.Default.Dashboard,
@@ -166,9 +174,9 @@ fun CtyunApp(
                                 colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
                                     selectedIconColor = VaporBackground,
                                     selectedTextColor = VaporBackground,
-                                    indicatorColor = VaporYellow,
-                                    unselectedIconColor = VaporInk,
-                                    unselectedTextColor = VaporInk,
+                                    indicatorColor = VaporCyan,
+                                    unselectedIconColor = Color(0xFFB6E7F2),
+                                    unselectedTextColor = Color(0xFFB6E7F2),
                                 ),
                             )
                         }
@@ -198,11 +206,11 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
     ) {
         VaporPanel(Modifier.padding(24.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = VaporInk)
-                Text("Version 1.0.11", color = VaporBlue)
+                Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Version 1.0.11", color = VaporCyan)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporGreen else VaporRed)
-                    StatusChip("PY", if (dashboard.pythonReady) "已加载" else "加载中", VaporBlue)
+                    StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporCyan else VaporYellow)
+                    StatusChip("PY", if (dashboard.pythonReady) "已加载" else "加载中", VaporMagenta)
                     StatusChip("OCR", if (dashboard.ocrReady) "已初始化" else "初始化中", VaporYellow)
                 }
             }
@@ -239,12 +247,12 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("后台保活总状态", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                    Text("后台保活总状态", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StatusChip("状态", statusText, if (statusText == "运行中") VaporGreen else VaporBlue)
-                        StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporGreen else VaporRed)
+                        StatusChip("状态", statusText, if (statusText == "运行中") VaporMagenta else VaporCyan)
+                        StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporCyan else VaporYellow)
                         StatusChip("OCR", if (dashboard.ocrReady) "已就绪" else "未初始化", VaporYellow)
-                        StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporBlue)
+                        StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporCyan)
                     }
                 }
             }
@@ -252,7 +260,7 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("控制台", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                    Text("控制台", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         PixelPrimaryButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -275,13 +283,13 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("最近结果", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                    Text("最近结果", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                     Text(lastResult, color = VaporRed, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         StatCard("成功账号", uiState.dashboard.runStats.successAccounts.toString(), Modifier.weight(1f))
                         StatCard("失败账号", uiState.dashboard.runStats.failedAccounts.toString(), Modifier.weight(1f))
                     }
-                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = VaporInk)
+                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = Color(0xFFE5FBFF))
                     Text("最近执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}", color = VaporMuted)
                 }
             }
@@ -294,7 +302,7 @@ private fun StatCard(title: String, value: String, modifier: Modifier = Modifier
     VaporPanel(modifier = modifier, innerPadding = 16.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.bodySmall, color = VaporMuted)
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = VaporBlue)
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = VaporCyan)
         }
     }
 }
@@ -354,8 +362,8 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
                     VaporPanel(modifier = Modifier.fillMaxWidth(), innerPadding = 14.dp) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = VaporInk)
-                                StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporYellow else VaporBlue)
+                                Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporYellow else VaporCyan)
                             }
                             Text(item.deviceCode.ifBlank { "未生成" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = VaporMuted)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -472,14 +480,18 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
     }
 }
 
-private val VaporBackground = Color(0xFFF9F9F7)
-private val VaporPanelBg = Color(0xFFF5F0D8)
-private val VaporInk = Color(0xFF111111)
-private val VaporRed = Color(0xFFCC0000)
-private val VaporBlue = Color(0xFF3A6EA5)
-private val VaporGreen = Color(0xFF4F8A10)
-private val VaporYellow = Color(0xFFE0A800)
-private val VaporMuted = Color(0xFF525252)
+private val VaporBackground = Color(0xFF050816)
+private val VaporPanelBg = Color(0xFF0B1120)
+private val VaporInk = Color(0xFFE6FBFF)
+private val VaporBorder = Color(0x4D22D3EE)
+private val VaporGlow = Color(0x9900FFFF)
+private val VaporRed = Color(0xFFFF4D6D)
+private val VaporBlue = Color(0xFF65B7FF)
+private val VaporGreen = Color(0xFF63F5B2)
+private val VaporYellow = Color(0xFFFFD166)
+private val VaporMagenta = Color(0xFFFF00C8)
+private val VaporCyan = Color(0xFF00F0FF)
+private val VaporMuted = Color(0xFF8FB4C1)
 
 @Composable
 private fun VaporPanel(
@@ -494,13 +506,14 @@ private fun VaporPanel(
             modifier = Modifier
                 .matchParentSize()
                 .padding(start = 4.dp, top = 4.dp)
-                .background(VaporInk)
+                .background(VaporGlow.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(VaporPanelBg)
-                .border(4.dp, VaporInk)
+                .border(1.dp, VaporBorder, RoundedCornerShape(12.dp))
+                .shadow(12.dp, RoundedCornerShape(12.dp), ambientColor = VaporGlow, spotColor = VaporGlow)
                 .padding(innerPadding)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
@@ -513,13 +526,14 @@ private fun StatusChip(label: String, value: String, color: Color) {
     Row(
         modifier = Modifier
             .background(color)
-            .border(4.dp, VaporInk)
+            .border(1.dp, color.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+            .shadow(8.dp, RoundedCornerShape(10.dp), ambientColor = color.copy(alpha = 0.5f), spotColor = color.copy(alpha = 0.5f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = VaporInk, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        Text(value, color = VaporInk, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black)
+        Text(label, color = Color.Black, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        Text(value, color = Color.Black, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -529,7 +543,7 @@ private fun PixelPrimaryButton(onClick: () -> Unit, modifier: Modifier = Modifie
         onClick = onClick,
         modifier = modifier.pixelShadow(),
         shape = RoundedCornerShape(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = VaporInk, contentColor = VaporBackground),
+        colors = ButtonDefaults.buttonColors(containerColor = VaporMagenta, contentColor = Color.White),
     ) { content() }
 }
 
@@ -539,7 +553,7 @@ private fun PixelAccentButton(onClick: () -> Unit, modifier: Modifier = Modifier
         onClick = onClick,
         modifier = modifier.pixelShadow(),
         shape = RoundedCornerShape(0.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = VaporRed, contentColor = VaporBackground),
+        colors = ButtonDefaults.buttonColors(containerColor = VaporYellow, contentColor = Color.Black),
     ) { content() }
 }
 
@@ -549,7 +563,7 @@ private fun PixelOutlineButton(onClick: () -> Unit, modifier: Modifier = Modifie
         onClick = onClick,
         modifier = modifier.pixelShadow(),
         shape = RoundedCornerShape(0.dp),
-        border = androidx.compose.foundation.BorderStroke(4.dp, VaporInk),
+        border = androidx.compose.foundation.BorderStroke(1.dp, VaporBorder),
         colors = ButtonDefaults.outlinedButtonColors(containerColor = VaporPanelBg, contentColor = VaporInk),
     ) { content() }
 }
@@ -561,17 +575,17 @@ private fun PixelTextField(value: String, onValueChange: (String) -> Unit, label
         onValueChange = onValueChange,
         label = { Text(label) },
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = VaporInk,
-            unfocusedBorderColor = VaporInk,
+            focusedBorderColor = VaporCyan,
+            unfocusedBorderColor = VaporBorder,
             focusedTextColor = VaporInk,
             unfocusedTextColor = VaporInk,
-            focusedLabelColor = VaporInk,
+            focusedLabelColor = VaporCyan,
             unfocusedLabelColor = VaporMuted,
             focusedContainerColor = VaporPanelBg,
             unfocusedContainerColor = VaporPanelBg,
-            cursorColor = VaporInk,
+            cursorColor = VaporCyan,
         )
     )
 }
@@ -579,7 +593,7 @@ private fun PixelTextField(value: String, onValueChange: (String) -> Unit, label
 private fun Modifier.pixelShadow(shape: Shape = RoundedCornerShape(0.dp)): Modifier {
     return this
         .padding(end = 4.dp, bottom = 4.dp)
-        .background(VaporInk, shape)
+        .background(VaporGlow.copy(alpha = 0.45f), shape)
         .padding(start = 4.dp, top = 4.dp)
 }
 
