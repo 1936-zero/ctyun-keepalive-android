@@ -29,7 +29,7 @@ android {
         vectorDrawables.useSupportLibrary = true
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
@@ -46,7 +46,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             if (signingConfigs.findByName("release") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
