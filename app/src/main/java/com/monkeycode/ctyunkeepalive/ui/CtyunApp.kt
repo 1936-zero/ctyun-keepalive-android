@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,9 +64,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -142,19 +142,14 @@ fun CtyunApp(
                 .fillMaxSize()
                 .background(VaporBackground)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp)
-                    .background(Brush.verticalGradient(listOf(Color(0x55FF9900), Color(0x33FF00FF), Color.Transparent)))
-            )
             Scaffold(
                 containerColor = Color.Transparent,
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 bottomBar = {
                     NavigationBar(
-                        containerColor = Color(0xFF130826),
+                        containerColor = VaporPanelBg,
                         tonalElevation = 0.dp,
+                        modifier = Modifier.border(4.dp, VaporInk),
                     ) {
                         listOf(
                             MainTab.Home to Icons.Default.Dashboard,
@@ -169,11 +164,11 @@ fun CtyunApp(
                                 icon = { Icon(icon, contentDescription = tab.title) },
                                 label = { Text(tab.title) },
                                 colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                    selectedIconColor = VaporCyan,
-                                    selectedTextColor = VaporCyan,
-                                    indicatorColor = Color(0x33FF00FF),
-                                    unselectedIconColor = Color(0xFF9AA0B5),
-                                    unselectedTextColor = Color(0xFF9AA0B5),
+                                    selectedIconColor = VaporBackground,
+                                    selectedTextColor = VaporBackground,
+                                    indicatorColor = VaporYellow,
+                                    unselectedIconColor = VaporInk,
+                                    unselectedTextColor = VaporInk,
                                 ),
                             )
                         }
@@ -203,12 +198,12 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
     ) {
         VaporPanel(Modifier.padding(24.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                Text("Version 1.0.11", color = VaporCyan)
+                Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = VaporInk)
+                Text("Version 1.0.11", color = VaporBlue)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporCyan else VaporOrange)
-                    StatusChip("Python", if (dashboard.pythonReady) "已加载" else "加载中", VaporMagenta)
-                    StatusChip("OCR", if (dashboard.ocrReady) "已初始化" else "初始化中", VaporOrange)
+                    StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporGreen else VaporRed)
+                    StatusChip("PY", if (dashboard.pythonReady) "已加载" else "加载中", VaporBlue)
+                    StatusChip("OCR", if (dashboard.ocrReady) "已初始化" else "初始化中", VaporYellow)
                 }
             }
         }
@@ -244,12 +239,12 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("后台保活总状态", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("后台保活总状态", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StatusChip("状态", statusText, if (statusText == "运行中") VaporMagenta else VaporCyan)
-                        StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporCyan else VaporOrange)
-                        StatusChip("OCR", if (dashboard.ocrReady) "已就绪" else "未初始化", if (dashboard.ocrReady) VaporOrange else VaporMagenta)
-                        StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporOrange)
+                        StatusChip("状态", statusText, if (statusText == "运行中") VaporGreen else VaporBlue)
+                        StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporGreen else VaporRed)
+                        StatusChip("OCR", if (dashboard.ocrReady) "已就绪" else "未初始化", VaporYellow)
+                        StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporBlue)
                     }
                 }
             }
@@ -257,22 +252,21 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("控制台", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("控制台", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        Button(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) {
+                        PixelPrimaryButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(Modifier.size(6.dp))
                             Text("启动后台保活")
                         }
-                        Button(
+                        PixelAccentButton(
                             onClick = { viewModel.runImmediateTest(context) },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A00)),
                         ) {
                             Text("立即测试保活")
                         }
                     }
-                    OutlinedButton(onClick = { viewModel.stop(context) }, modifier = Modifier.fillMaxWidth()) {
+                    PixelOutlineButton(onClick = { viewModel.stop(context) }, modifier = Modifier.fillMaxWidth()) {
                             Text("停止服务")
                     }
                 }
@@ -281,14 +275,14 @@ private fun HomeScreen(
         item {
             VaporPanel {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("最近结果", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(lastResult, color = VaporCyan, style = MaterialTheme.typography.titleMedium)
+                    Text("最近结果", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                    Text(lastResult, color = VaporRed, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         StatCard("成功账号", uiState.dashboard.runStats.successAccounts.toString(), Modifier.weight(1f))
                         StatCard("失败账号", uiState.dashboard.runStats.failedAccounts.toString(), Modifier.weight(1f))
                     }
-                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = Color(0xFFE0E0E0))
-                    Text("最近执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}", color = Color(0xFFB8B2D8))
+                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = VaporInk)
+                    Text("最近执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}", color = VaporMuted)
                 }
             }
         }
@@ -299,8 +293,8 @@ private fun HomeScreen(
 private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
     VaporPanel(modifier = modifier, innerPadding = 16.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.bodySmall, color = Color(0xFFB8B2D8))
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = VaporCyan)
+            Text(title, style = MaterialTheme.typography.bodySmall, color = VaporMuted)
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = VaporBlue)
         }
     }
 }
@@ -346,8 +340,8 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { addDialog = true }, modifier = Modifier.weight(1f)) { Text("添加账号") }
-            OutlinedButton(onClick = { confirmClear = true }, modifier = Modifier.weight(1f)) { Text("清空所有") }
+            PixelPrimaryButton(onClick = { addDialog = true }, modifier = Modifier.weight(1f)) { Text("添加账号") }
+            PixelOutlineButton(onClick = { confirmClear = true }, modifier = Modifier.weight(1f)) { Text("清空所有") }
         }
 
         if (accounts.isEmpty()) {
@@ -360,13 +354,13 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
                     VaporPanel(modifier = Modifier.fillMaxWidth(), innerPadding = 14.dp) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                                StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporOrange else VaporCyan)
+                                Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = VaporInk)
+                                StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporYellow else VaporBlue)
                             }
-                            Text(item.deviceCode.ifBlank { "未生成" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFFB8B2D8))
+                            Text(item.deviceCode.ifBlank { "未生成" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = VaporMuted)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(onClick = { editing = item }, modifier = Modifier.weight(1f)) { Text("编辑") }
-                                OutlinedButton(onClick = { viewModel.removeAccount(item.credential.id) }, modifier = Modifier.weight(1f)) { Text("删除") }
+                                PixelOutlineButton(onClick = { editing = item }, modifier = Modifier.weight(1f)) { Text("编辑") }
+                                PixelOutlineButton(onClick = { viewModel.removeAccount(item.credential.id) }, modifier = Modifier.weight(1f)) { Text("删除") }
                             }
                         }
                     }
@@ -424,14 +418,14 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { viewModel.clearLogs() }, modifier = Modifier.weight(1f)) { Text("清空日志") }
-            OutlinedButton(onClick = {
+            PixelPrimaryButton(onClick = { viewModel.clearLogs() }, modifier = Modifier.weight(1f)) { Text("清空日志") }
+            PixelOutlineButton(onClick = {
                 clipboard.setText(AnnotatedString(allLogs))
                 Toast.makeText(context, "日志已复制", Toast.LENGTH_SHORT).show()
             }, modifier = Modifier.weight(1f)) { Text("复制全部") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = {
+            PixelOutlineButton(onClick = {
                 val opened = viewModel.openLogFolder(context)
                 if (!opened) {
                     Toast.makeText(context, "无法直接打开文件夹，请手动前往 $logDirectoryPath", Toast.LENGTH_LONG).show()
@@ -441,7 +435,7 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
                 Spacer(Modifier.size(6.dp))
                 Text("打开日志文件夹")
             }
-            OutlinedButton(onClick = {
+            PixelOutlineButton(onClick = {
                 clipboard.setText(AnnotatedString(logDirectoryPath))
                 Toast.makeText(context, "日志路径已复制", Toast.LENGTH_SHORT).show()
             }, modifier = Modifier.weight(1f)) {
@@ -450,13 +444,13 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
                 Text("复制日志路径")
             }
         }
-        Text("当前日志目录: $logDirectoryPath", style = MaterialTheme.typography.bodySmall)
+        Text("当前日志目录: $logDirectoryPath", style = MaterialTheme.typography.bodySmall, color = VaporMuted)
         VaporPanel(modifier = Modifier.fillMaxSize(), innerPadding = 0.dp) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF101418))
+                    .background(VaporPanelBg)
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -464,11 +458,11 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
                     Text(
                         text = "${formatTime(item.timestamp)} ${item.message}",
                         color = when (item.level) {
-                            LogLevel.DEBUG -> Color(0xFF9EC1FF)
-                            LogLevel.INFO -> Color.White
-                            LogLevel.SUCCESS -> Color(0xFF5CE27B)
-                            LogLevel.WARNING -> Color(0xFFFFD54F)
-                            LogLevel.ERROR -> Color(0xFFFF6E6E)
+                            LogLevel.DEBUG -> VaporBlue
+                            LogLevel.INFO -> VaporInk
+                            LogLevel.SUCCESS -> VaporGreen
+                            LogLevel.WARNING -> VaporYellow
+                            LogLevel.ERROR -> VaporRed
                         },
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -478,21 +472,14 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
     }
 }
 
-private val VaporBackground = Brush.verticalGradient(
-    listOf(
-        Color(0xFF090014),
-        Color(0xFF100726),
-        Color(0xFF090014),
-    )
-)
-
-private val VaporPanelBrush = Brush.verticalGradient(
-    listOf(Color(0xCC1A103C), Color(0xCC120B2C))
-)
-
-private val VaporMagenta = Color(0xFFFF00FF)
-private val VaporCyan = Color(0xFF00FFFF)
-private val VaporOrange = Color(0xFFFF9900)
+private val VaporBackground = Color(0xFFF9F9F7)
+private val VaporPanelBg = Color(0xFFF5F0D8)
+private val VaporInk = Color(0xFF111111)
+private val VaporRed = Color(0xFFCC0000)
+private val VaporBlue = Color(0xFF3A6EA5)
+private val VaporGreen = Color(0xFF4F8A10)
+private val VaporYellow = Color(0xFFE0A800)
+private val VaporMuted = Color(0xFF525252)
 
 @Composable
 private fun VaporPanel(
@@ -501,13 +488,23 @@ private fun VaporPanel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(0.dp))
-            .border(2.dp, VaporMagenta.copy(alpha = 0.45f), RoundedCornerShape(0.dp))
-            .background(VaporPanelBrush)
-            .padding(innerPadding)
+        modifier = modifier.padding(end = 4.dp, bottom = 4.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(start = 4.dp, top = 4.dp)
+                .background(VaporInk)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(VaporPanelBg)
+                .border(4.dp, VaporInk)
+                .padding(innerPadding)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+        }
     }
 }
 
@@ -515,15 +512,75 @@ private fun VaporPanel(
 private fun StatusChip(label: String, value: String, color: Color) {
     Row(
         modifier = Modifier
-            .border(1.dp, color, RoundedCornerShape(0.dp))
-            .background(color.copy(alpha = 0.12f))
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .background(color)
+            .border(4.dp, VaporInk)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = color, style = MaterialTheme.typography.labelSmall)
-        Text(value, color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        Text(label, color = VaporInk, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        Text(value, color = VaporInk, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black)
     }
+}
+
+@Composable
+private fun PixelPrimaryButton(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.pixelShadow(),
+        shape = RoundedCornerShape(0.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = VaporInk, contentColor = VaporBackground),
+    ) { content() }
+}
+
+@Composable
+private fun PixelAccentButton(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.pixelShadow(),
+        shape = RoundedCornerShape(0.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = VaporRed, contentColor = VaporBackground),
+    ) { content() }
+}
+
+@Composable
+private fun PixelOutlineButton(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.pixelShadow(),
+        shape = RoundedCornerShape(0.dp),
+        border = androidx.compose.foundation.BorderStroke(4.dp, VaporInk),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = VaporPanelBg, contentColor = VaporInk),
+    ) { content() }
+}
+
+@Composable
+private fun PixelTextField(value: String, onValueChange: (String) -> Unit, label: String) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(0.dp),
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = VaporInk,
+            unfocusedBorderColor = VaporInk,
+            focusedTextColor = VaporInk,
+            unfocusedTextColor = VaporInk,
+            focusedLabelColor = VaporInk,
+            unfocusedLabelColor = VaporMuted,
+            focusedContainerColor = VaporPanelBg,
+            unfocusedContainerColor = VaporPanelBg,
+            cursorColor = VaporInk,
+        )
+    )
+}
+
+private fun Modifier.pixelShadow(shape: Shape = RoundedCornerShape(0.dp)): Modifier {
+    return this
+        .padding(end = 4.dp, bottom = 4.dp)
+        .background(VaporInk, shape)
+        .padding(start = 4.dp, top = 4.dp)
 }
 
 @Composable
@@ -542,28 +599,32 @@ private fun ConfigScreen(settings: AppSettings, padding: PaddingValues, viewMode
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("参数配置", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        OutlinedTextField(value = concurrency, onValueChange = { concurrency = it }, label = { Text("并发执行数") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = clinkHold, onValueChange = { clinkHold = it }, label = { Text("Clink 保活时长(ms)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = retryCount, onValueChange = { retryCount = it }, label = { Text("网络重试次数") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = retryDelay, onValueChange = { retryDelay = it }, label = { Text("重试等待(ms)") }, modifier = Modifier.fillMaxWidth())
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text("调试模式")
-            Switch(checked = debug, onCheckedChange = { debug = it })
+        VaporPanel {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("参数配置", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = VaporInk)
+                PixelTextField(value = concurrency, onValueChange = { concurrency = it }, label = "并发执行数")
+                PixelTextField(value = clinkHold, onValueChange = { clinkHold = it }, label = "Clink 保活时长(ms)")
+                PixelTextField(value = retryCount, onValueChange = { retryCount = it }, label = "网络重试次数")
+                PixelTextField(value = retryDelay, onValueChange = { retryDelay = it }, label = "重试等待(ms)")
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text("调试模式", color = VaporInk)
+                    Switch(checked = debug, onCheckedChange = { debug = it })
+                }
+                PixelPrimaryButton(onClick = {
+                    viewModel.saveSettings(
+                        AppSettings(
+                            concurrency = concurrency.toIntOrNull() ?: settings.concurrency,
+                            clinkHoldMs = clinkHold.toLongOrNull() ?: settings.clinkHoldMs,
+                            networkRetryCount = retryCount.toIntOrNull() ?: settings.networkRetryCount,
+                            networkRetryDelayMs = retryDelay.toLongOrNull() ?: settings.networkRetryDelayMs,
+                            debug = debug,
+                            cronEnabled = settings.cronEnabled,
+                        )
+                    )
+                }, modifier = Modifier.fillMaxWidth()) { Text("保存并立即生效") }
+                PixelOutlineButton(onClick = { viewModel.saveSettings(AppSettings(cronEnabled = settings.cronEnabled)) }, modifier = Modifier.fillMaxWidth()) { Text("恢复默认参数") }
+            }
         }
-        Button(onClick = {
-            viewModel.saveSettings(
-                AppSettings(
-                    concurrency = concurrency.toIntOrNull() ?: settings.concurrency,
-                    clinkHoldMs = clinkHold.toLongOrNull() ?: settings.clinkHoldMs,
-                    networkRetryCount = retryCount.toIntOrNull() ?: settings.networkRetryCount,
-                    networkRetryDelayMs = retryDelay.toLongOrNull() ?: settings.networkRetryDelayMs,
-                    debug = debug,
-                    cronEnabled = settings.cronEnabled,
-                )
-            )
-        }, modifier = Modifier.fillMaxWidth()) { Text("保存并立即生效") }
-        OutlinedButton(onClick = { viewModel.saveSettings(AppSettings(cronEnabled = settings.cronEnabled)) }, modifier = Modifier.fillMaxWidth()) { Text("恢复默认参数") }
     }
 }
 
@@ -589,37 +650,37 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Card {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("权限管理", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("ROOT 授权状态: ${if (uiState.dashboard.rootGranted) "已授权" else "未授权"}")
-                Text("Python 环境: ${if (uiState.dashboard.pythonReady) "已加载" else "未加载"}")
-                Text("OCR 模型: ${if (uiState.dashboard.ocrReady) "已初始化" else "未初始化"}")
+        VaporPanel {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("权限管理", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                Text("ROOT 授权状态: ${if (uiState.dashboard.rootGranted) "已授权" else "未授权"}", color = VaporInk)
+                Text("Python 环境: ${if (uiState.dashboard.pythonReady) "已加载" else "未加载"}", color = VaporInk)
+                Text("OCR 模型: ${if (uiState.dashboard.ocrReady) "已初始化" else "未初始化"}", color = VaporInk)
             }
         }
-        Card {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("服务管理", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("固定 Cron 表达式: ${AppConfig.cronExpression}")
-                Text("服务说明: 前台服务 + AlarmManager + ROOT 守护进程")
+        VaporPanel {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("服务管理", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                Text("固定 Cron 表达式: ${AppConfig.cronExpression}", color = VaporInk)
+                Text("服务说明: 后台保活服务 + AlarmManager + ROOT watchdog", color = VaporMuted)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Button(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重新检测权限") }
-                    OutlinedButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) { Text("重启后台保活服务") }
+                    PixelPrimaryButton(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重新检测权限") }
+                    PixelOutlineButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) { Text("重启后台保活服务") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { viewModel.clearLogs() }, modifier = Modifier.weight(1f)) { Text("清理缓存日志") }
-                    OutlinedButton(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重置 OCR 模型") }
+                    PixelOutlineButton(onClick = { viewModel.clearLogs() }, modifier = Modifier.weight(1f)) { Text("清理缓存日志") }
+                    PixelOutlineButton(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重置 OCR 模型") }
                 }
             }
         }
-        Card {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("关于应用", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("版本: 1.0.11")
-                Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr")
-                Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试")
+        VaporPanel {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("关于应用", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                Text("版本: 1.0.11", color = VaporInk)
+                Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr", color = VaporInk)
+                Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试", color = VaporMuted)
             }
         }
-        OutlinedButton(onClick = { confirmExit = true }, modifier = Modifier.fillMaxWidth()) { Text("退出登录并清空所有本地数据") }
+        PixelOutlineButton(onClick = { confirmExit = true }, modifier = Modifier.fillMaxWidth()) { Text("退出登录并清空所有本地数据") }
     }
 }
