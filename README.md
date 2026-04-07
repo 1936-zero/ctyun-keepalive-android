@@ -20,7 +20,7 @@
 8. 打开 APK，在账号设置里启用“自定义 deviceCode”，把复制到的值填进去
   <img width="" alt="1d06bd040f8a8765dbc6ea637aede3fa" src="https://github.com/user-attachments/assets/52291577-ee0d-4425-b904-f44842cda28b" />
 
-  <img width="260" alt="074be9777bdde91a37e3eeeef11ff23e" src="https://github.com/user-attachments/assets/a597b64d-ff97-44af-b55d-ce261ad25ac9" />
+  ![074be9777bdde91a37e3eeeef11ff23e](https://github.com/user-attachments/assets/a597b64d-ff97-44af-b55d-ce261ad25ac9)
 
 说明：
 
@@ -79,7 +79,6 @@ app/src/main/python/
 当前已成功生成 Debug APK：`app/build/outputs/apk/debug/app-debug.apk`
 
 ## 打赏
-![5762fb4431be7951f6f55d529545efd9](https://github.com/user-attachments/assets/ad9ea26e-75b2-4edf-8971-aade7ef117e6)
+<img width="200" alt="5762fb4431be7951f6f55d529545efd9" src="https://github.com/user-attachments/assets/ad9ea26e-75b2-4edf-8971-aade7ef117e6" />
 
-![f6acf0283e60f03657151b2526bfb753](https://github.com/user-attachments/assets/e35fdb61-14a4-44b3-a4e8-c7d0ae782db3)
-
+<img width="200" alt="f6acf0283e60f03657151b2526bfb753" src="https://github.com/user-attachments/assets/e35fdb61-14a4-44b3-a4e8-c7d0ae782db3" />
