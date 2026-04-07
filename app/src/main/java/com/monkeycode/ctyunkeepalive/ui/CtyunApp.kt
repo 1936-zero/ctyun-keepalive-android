@@ -9,14 +9,19 @@ import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,13 +63,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.monkeycode.ctyunkeepalive.core.AppConfig
 import com.monkeycode.ctyunkeepalive.core.AppSettings
@@ -128,39 +137,63 @@ fun CtyunApp(
             SplashScreen(uiState.dashboard)
             return@MaterialTheme
         }
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = {
-                NavigationBar {
-                    listOf(
-                        MainTab.Home to Icons.Default.Dashboard,
-                        MainTab.Accounts to Icons.Default.ManageAccounts,
-                        MainTab.Logs to Icons.AutoMirrored.Filled.ListAlt,
-                        MainTab.Config to Icons.Default.Build,
-                        MainTab.System to Icons.Default.Settings,
-                    ).forEach { (tab, icon) ->
-                        NavigationBarItem(
-                            selected = currentTab == tab,
-                            onClick = { currentTab = tab },
-                            icon = { Icon(icon, contentDescription = tab.title) },
-                            label = { Text(tab.title) },
-                        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(VaporBackground)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .background(Brush.verticalGradient(listOf(Color(0x55FF9900), Color(0x33FF00FF), Color.Transparent)))
+            )
+            Scaffold(
+                containerColor = Color.Transparent,
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                bottomBar = {
+                    NavigationBar(
+                        containerColor = Color(0xFF130826),
+                        tonalElevation = 0.dp,
+                    ) {
+                        listOf(
+                            MainTab.Home to Icons.Default.Dashboard,
+                            MainTab.Accounts to Icons.Default.ManageAccounts,
+                            MainTab.Logs to Icons.AutoMirrored.Filled.ListAlt,
+                            MainTab.Config to Icons.Default.Build,
+                            MainTab.System to Icons.Default.Settings,
+                        ).forEach { (tab, icon) ->
+                            NavigationBarItem(
+                                selected = currentTab == tab,
+                                onClick = { currentTab = tab },
+                                icon = { Icon(icon, contentDescription = tab.title) },
+                                label = { Text(tab.title) },
+                                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                    selectedIconColor = VaporCyan,
+                                    selectedTextColor = VaporCyan,
+                                    indicatorColor = Color(0x33FF00FF),
+                                    unselectedIconColor = Color(0xFF9AA0B5),
+                                    unselectedTextColor = Color(0xFF9AA0B5),
+                                ),
+                            )
+                        }
                     }
+                },
+            ) { padding ->
+                when (currentTab) {
+                    MainTab.Home -> HomeScreen(uiState, padding, context, viewModel)
+                    MainTab.Accounts -> AccountsScreen(uiState.accounts, padding, viewModel)
+                    MainTab.Logs -> LogsScreen(uiState.logs, uiState.logDirectoryPath, padding, viewModel)
+                    MainTab.Config -> ConfigScreen(uiState.settings, padding, viewModel)
+                    MainTab.System -> SystemScreen(uiState, padding, viewModel)
                 }
-            },
-        ) { padding ->
-            when (currentTab) {
-                MainTab.Home -> HomeScreen(uiState, padding, context, viewModel)
-                MainTab.Accounts -> AccountsScreen(uiState.accounts, padding, viewModel)
-                MainTab.Logs -> LogsScreen(uiState.logs, uiState.logDirectoryPath, padding, viewModel)
-                MainTab.Config -> ConfigScreen(uiState.settings, padding, viewModel)
-                MainTab.System -> SystemScreen(uiState, padding, viewModel)
             }
         }
     }
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.DashboardState) {
     Box(
         modifier = Modifier
@@ -168,17 +201,22 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Version 1.0.10")
-            Text("ROOT: ${if (dashboard.rootGranted) "已授权" else "检测中"}")
-            Text("Python: ${if (dashboard.pythonReady) "已加载" else "加载中"}")
-            Text("OCR: ${if (dashboard.ocrReady) "已初始化" else "初始化中"}")
+        VaporPanel(Modifier.padding(24.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Version 1.0.11", color = VaporCyan)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporCyan else VaporOrange)
+                    StatusChip("Python", if (dashboard.pythonReady) "已加载" else "加载中", VaporMagenta)
+                    StatusChip("OCR", if (dashboard.ocrReady) "已初始化" else "初始化中", VaporOrange)
+                }
+            }
         }
     }
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun HomeScreen(
     uiState: MainUiState,
     padding: PaddingValues,
@@ -186,11 +224,15 @@ private fun HomeScreen(
     viewModel: MainViewModel,
 ) {
     val dashboard = uiState.dashboard
-    val clipboard = LocalClipboardManager.current
     val statusText = when {
         dashboard.runStats.running -> "运行中"
         dashboard.runStats.currentProgress.contains("后台") -> "后台待命"
         else -> "已停止"
+    }
+    val lastResult = when {
+        dashboard.runStats.failedAccounts > 0 -> "最近一轮含失败"
+        dashboard.runStats.successAccounts > 0 -> "最近一轮成功"
+        else -> "尚未执行"
     }
     LazyColumn(
         modifier = Modifier
@@ -200,20 +242,23 @@ private fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("天翼云手机保活", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("状态: $statusText")
-                    Text("ROOT: ${if (dashboard.rootGranted) "已授权" else "未授权"}")
-                    Text("OCR: ${if (dashboard.ocrReady) "离线模型已就绪" else "未初始化"}")
+            VaporPanel {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("后台保活总状态", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StatusChip("状态", statusText, if (statusText == "运行中") VaporMagenta else VaporCyan)
+                        StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporCyan else VaporOrange)
+                        StatusChip("OCR", if (dashboard.ocrReady) "已就绪" else "未初始化", if (dashboard.ocrReady) VaporOrange else VaporMagenta)
+                        StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporOrange)
+                    }
                 }
             }
         }
         item {
-            Card {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("控制区", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            VaporPanel {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("控制台", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         Button(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(Modifier.size(6.dp))
@@ -227,53 +272,23 @@ private fun HomeScreen(
                             Text("立即测试保活")
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = { viewModel.stop(context) }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = { viewModel.stop(context) }, modifier = Modifier.fillMaxWidth()) {
                             Text("停止服务")
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                clipboard.setText(AnnotatedString(uiState.logDirectoryPath))
-                                Toast.makeText(context, "日志路径已复制", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text("复制日志路径")
-                        }
-                    }
-                    Text("日志已保存到: ${uiState.logDirectoryPath}", color = MaterialTheme.colorScheme.primary)
-                    Text("说明: “立即测试保活”只执行一次；“启动后台保活”只启动后台保活服务和定时任务。", style = MaterialTheme.typography.bodySmall)
-                    if (!dashboard.rootGranted) {
-                        Text("提示: 当前 ROOT 未授权，系统级保活能力不会生效。", color = MaterialTheme.colorScheme.error)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Column {
-                            Text("定时任务")
-                            Text("固定 Cron: ${AppConfig.cronExpression}（每20分钟执行一次）", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Switch(
-                            checked = uiState.settings.cronEnabled,
-                            onCheckedChange = { viewModel.saveSettings(uiState.settings.copy(cronEnabled = it)) },
-                        )
                     }
                 }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatCard("今日执行", uiState.dashboard.runStats.todayRuns.toString(), Modifier.weight(1f))
-                StatCard("成功账号", uiState.dashboard.runStats.successAccounts.toString(), Modifier.weight(1f))
-                StatCard("失败账号", uiState.dashboard.runStats.failedAccounts.toString(), Modifier.weight(1f))
-            }
-        }
-        item {
-            Card {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("快捷信息", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}")
-                    Text("上次执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}")
-                    Text("下次执行: ${formatTime(uiState.dashboard.runStats.nextRunAt)}")
-                    Text("账号总数: ${uiState.accounts.size}")
+            VaporPanel {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("最近结果", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(lastResult, color = VaporCyan, style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        StatCard("成功账号", uiState.dashboard.runStats.successAccounts.toString(), Modifier.weight(1f))
+                        StatCard("失败账号", uiState.dashboard.runStats.failedAccounts.toString(), Modifier.weight(1f))
+                    }
+                    Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = Color(0xFFE0E0E0))
+                    Text("最近执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}", color = Color(0xFFB8B2D8))
                 }
             }
         }
@@ -282,17 +297,16 @@ private fun HomeScreen(
 
 @Composable
 private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium)
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    VaporPanel(modifier = modifier, innerPadding = 16.dp) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.bodySmall, color = Color(0xFFB8B2D8))
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = VaporCyan)
         }
     }
 }
 
 @Composable
 private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues, viewModel: MainViewModel) {
-    var batchText by remember { mutableStateOf("") }
     var addDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<StoredAccount?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
@@ -331,22 +345,9 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Card {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("批量导入", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = batchText,
-                    onValueChange = { batchText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    placeholder = { Text("账号#密码 或 账号#密码#deviceCode") },
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { if (batchText.isNotBlank()) viewModel.importAccounts(batchText) }, modifier = Modifier.weight(1f)) { Text("一键解析导入") }
-                    OutlinedButton(onClick = { addDialog = true }, modifier = Modifier.weight(1f)) { Text("单个添加") }
-                }
-                OutlinedButton(onClick = { confirmClear = true }, modifier = Modifier.fillMaxWidth()) { Text("清空所有") }
-            }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = { addDialog = true }, modifier = Modifier.weight(1f)) { Text("添加账号") }
+            OutlinedButton(onClick = { confirmClear = true }, modifier = Modifier.weight(1f)) { Text("清空所有") }
         }
 
         if (accounts.isEmpty()) {
@@ -356,11 +357,14 @@ private fun AccountsScreen(accounts: List<StoredAccount>, padding: PaddingValues
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(accounts, key = { it.credential.id }) { item ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("DeviceCode(${if (item.useCustomDeviceCode) "自定义" else "自动"}): ${item.deviceCode.ifBlank { "未生成" }}", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    VaporPanel(modifier = Modifier.fillMaxWidth(), innerPadding = 14.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                Text(maskAccount(item.credential.username), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                StatusChip("deviceCode", if (item.useCustomDeviceCode) "自定义" else "自动", if (item.useCustomDeviceCode) VaporOrange else VaporCyan)
+                            }
+                            Text(item.deviceCode.ifBlank { "未生成" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFFB8B2D8))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                                 OutlinedButton(onClick = { editing = item }, modifier = Modifier.weight(1f)) { Text("编辑") }
                                 OutlinedButton(onClick = { viewModel.removeAccount(item.credential.id) }, modifier = Modifier.weight(1f)) { Text("删除") }
                             }
@@ -425,14 +429,6 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
                 clipboard.setText(AnnotatedString(allLogs))
                 Toast.makeText(context, "日志已复制", Toast.LENGTH_SHORT).show()
             }, modifier = Modifier.weight(1f)) { Text("复制全部") }
-            OutlinedButton(onClick = {
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, allLogs)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(Intent.createChooser(intent, "导出日志"))
-            }, modifier = Modifier.weight(1f)) { Text("导出日志") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = {
@@ -455,7 +451,7 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
             }
         }
         Text("当前日志目录: $logDirectoryPath", style = MaterialTheme.typography.bodySmall)
-        Card(modifier = Modifier.fillMaxSize()) {
+        VaporPanel(modifier = Modifier.fillMaxSize(), innerPadding = 0.dp) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -474,10 +470,59 @@ private fun LogsScreen(logs: List<LogEntry>, logDirectoryPath: String, padding: 
                             LogLevel.WARNING -> Color(0xFFFFD54F)
                             LogLevel.ERROR -> Color(0xFFFF6E6E)
                         },
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
         }
+    }
+}
+
+private val VaporBackground = Brush.verticalGradient(
+    listOf(
+        Color(0xFF090014),
+        Color(0xFF100726),
+        Color(0xFF090014),
+    )
+)
+
+private val VaporPanelBrush = Brush.verticalGradient(
+    listOf(Color(0xCC1A103C), Color(0xCC120B2C))
+)
+
+private val VaporMagenta = Color(0xFFFF00FF)
+private val VaporCyan = Color(0xFF00FFFF)
+private val VaporOrange = Color(0xFFFF9900)
+
+@Composable
+private fun VaporPanel(
+    modifier: Modifier = Modifier,
+    innerPadding: Dp = 20.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(0.dp))
+            .border(2.dp, VaporMagenta.copy(alpha = 0.45f), RoundedCornerShape(0.dp))
+            .background(VaporPanelBrush)
+            .padding(innerPadding)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    }
+}
+
+@Composable
+private fun StatusChip(label: String, value: String, color: Color) {
+    Row(
+        modifier = Modifier
+            .border(1.dp, color, RoundedCornerShape(0.dp))
+            .background(color.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = color, style = MaterialTheme.typography.labelSmall)
+        Text(value, color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -570,7 +615,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("关于应用", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("版本: 1.0.10")
+                Text("版本: 1.0.11")
                 Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr")
                 Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试")
             }

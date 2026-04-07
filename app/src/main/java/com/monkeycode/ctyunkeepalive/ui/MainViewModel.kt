@@ -60,8 +60,6 @@ class MainViewModel(
 
     fun openLogFolder(context: android.content.Context): Boolean = container.logFileStore.openLogFolder(context)
 
-    fun importAccounts(raw: String) = container.keepAliveEngine.importAccounts(raw)
-
     fun addAccount(username: String, password: String, deviceCode: String, useCustomDeviceCode: Boolean) =
         container.keepAliveEngine.addAccount(username, password, deviceCode, useCustomDeviceCode)
 

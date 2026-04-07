@@ -55,10 +55,8 @@ class LogFileStore(
     }
 
     fun readRecentEntries(limit: Int = 200): List<LogEntry> {
-        val file = File(backupDirectory(), dailyFileName(System.currentTimeMillis()))
-        if (!file.exists()) return emptyList()
         return runCatching {
-            file.readLines(Charsets.UTF_8)
+            readCurrentLogLines()
                 .takeLast(limit)
                 .mapNotNull(::parseLogLine)
         }.getOrDefault(emptyList())
@@ -97,7 +95,6 @@ class LogFileStore(
     fun clearAll() {
         runBlocking(Dispatchers.IO) {
             writeLock.withLock {
-                runCatching { clearBackupFiles() }
                 runCatching { clearLegacyFiles() }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     runCatching { clearMediaStoreFiles() }
@@ -108,7 +105,6 @@ class LogFileStore(
 
     private fun appendInternal(entry: LogEntry) {
         val text = buildLogLine(entry)
-        appendWithBackupFile(text, entry.timestamp)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             runCatching { appendWithMediaStore(text, entry.timestamp) }
         } else {
@@ -150,19 +146,6 @@ class LogFileStore(
     private fun appendWithLegacyFile(text: String, timestamp: Long) {
         val directory = legacyDirectory().apply { mkdirs() }
         File(directory, dailyFileName(timestamp)).appendText(text, Charsets.UTF_8)
-    }
-
-    private fun appendWithBackupFile(text: String, timestamp: Long) {
-        val directory = backupDirectory().apply { mkdirs() }
-        File(directory, dailyFileName(timestamp)).appendText(text, Charsets.UTF_8)
-    }
-
-    private fun clearBackupFiles() {
-        backupDirectory().listFiles()?.forEach { file ->
-            if (file.isFile && file.name.endsWith(".log")) {
-                file.delete()
-            }
-        }
     }
 
     private fun clearLegacyFiles() {
@@ -211,10 +194,36 @@ class LogFileStore(
 
     private fun buildDisplayPath(): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            "内部存储/Documents/$folderName | 备份: ${backupDirectory().absolutePath}"
+            "内部存储/Documents/$folderName"
         } else {
             legacyDirectory().absolutePath
         }
+    }
+
+    private fun readCurrentLogLines(): List<String> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            readMediaStoreLogLines()
+        } else {
+            val file = File(legacyDirectory(), dailyFileName(System.currentTimeMillis()))
+            if (file.exists()) file.readLines(Charsets.UTF_8) else emptyList()
+        }
+    }
+
+    private fun readMediaStoreLogLines(): List<String> {
+        val resolver = appContext.contentResolver
+        val fileName = dailyFileName(System.currentTimeMillis())
+        val uri = resolver.query(
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            arrayOf(MediaColumns._ID),
+            "${MediaColumns.RELATIVE_PATH}=? AND ${MediaColumns.DISPLAY_NAME}=?",
+            arrayOf(relativeDirectory, fileName),
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaColumns._ID))
+            android.net.Uri.withAppendedPath(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), id.toString())
+        } ?: return emptyList()
+        return resolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readLines() }.orEmpty()
     }
 
     private fun buildInitialUri(): android.net.Uri {
@@ -226,10 +235,6 @@ class LogFileStore(
 
     private fun legacyDirectory(): File {
         return File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), folderName)
-    }
-
-    private fun backupDirectory(): File {
-        return File(appContext.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), folderName)
     }
 
     companion object {

@@ -169,24 +169,6 @@ class KeepAliveEngine(
         logRepository.append(LogLevel.WARNING, "保活任务已停止")
     }
 
-    fun importAccounts(raw: String) {
-        val parsed = com.monkeycode.ctyunkeepalive.core.parseBatchAccounts(raw)
-        parsed.forEach { input ->
-            accountRepository.addOrReplace(
-                StoredAccount(
-                    credential = AccountCredential(
-                        id = java.util.UUID.randomUUID().toString(),
-                        username = input.username,
-                        password = input.password,
-                    ),
-                    deviceCode = input.deviceCode,
-                    useCustomDeviceCode = input.useCustomDeviceCode,
-                )
-            )
-        }
-        logRepository.append(LogLevel.SUCCESS, "批量导入 ${parsed.size} 个账号")
-    }
-
     fun addAccount(username: String, password: String, deviceCode: String = "", useCustomDeviceCode: Boolean = false) {
         accountRepository.addOrReplace(
             StoredAccount(

@@ -22,8 +22,8 @@ android {
         applicationId = "com.monkeycode.ctyunkeepalive"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.0.10"
+        versionCode = 13
+        versionName = "1.0.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
