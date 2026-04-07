@@ -58,6 +58,13 @@ app/src/main/python/
   ocr_bridge.py  ddddocr 离线识别入口
 ```
 
+## 打赏
+
+![5762fb4431be7951f6f55d529545efd9](https://github.com/user-attachments/assets/ae061785-4fa0-4817-96b0-3b5b3cdbfa4b)
+![f6acf0283e60f03657151b2526bfb753](https://github.com/user-attachments/assets/25f20934-0ca6-4493-bdaf-650267d229e9)
+
+
+
 ## 编译
 
 详见 `docs/build.md`。
