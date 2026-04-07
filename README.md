@@ -59,9 +59,10 @@ app/src/main/python/
 ```
 
 ## 打赏
+![5762fb4431be7951f6f55d529545efd9](https://github.com/user-attachments/assets/d721cf80-fecf-4dba-8a4e-edf300b530c0)
+![f6acf0283e60f03657151b2526bfb753](https://github.com/user-attachments/assets/16c681fd-ac32-4402-82a2-44b91d1ccc88)
 
- <img width="260" alt="5762fb4431be7951f6f55d529545efd9" src="https://github.com/user-attachments/assets/ae061785-4fa0-4817-96b0-3b5b3cdbfa4b" />
-![f6acf0283e60f03657151b2526bfb753](https://github.com/user-attachments/assets/25f20934-0ca6-4493-bdaf-650267d229e9)
+
 
 
 
