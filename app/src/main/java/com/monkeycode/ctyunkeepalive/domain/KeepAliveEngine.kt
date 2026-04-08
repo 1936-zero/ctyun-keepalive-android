@@ -113,6 +113,11 @@ class KeepAliveEngine(
     }
 
     fun startNow(trigger: RunTrigger = RunTrigger.SCHEDULED) {
+        if (trigger == RunTrigger.SCHEDULED && rootManager.isManualStopMarked()) {
+            logRepository.append(LogLevel.INFO, "已手动停止后台保活，忽略本次定时触发")
+            scheduler.cancel(appContext)
+            return
+        }
         val currentStats = settingsRepository.stats().value
         if (trigger == RunTrigger.SCHEDULED && currentStats.currentProgress == STOPPED_PROGRESS) {
             logRepository.append(LogLevel.INFO, "已手动停止后台保活，忽略本次定时触发")

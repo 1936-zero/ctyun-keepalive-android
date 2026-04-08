@@ -9,8 +9,7 @@ class ScheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext as MainApplication
         val settings = app.container.settingsRepository.settings().value
-        val stats = app.container.settingsRepository.stats().value
-        if (!settings.cronEnabled || stats.currentProgress == "已停止") {
+        if (!settings.cronEnabled || app.container.rootManager.isManualStopMarked()) {
             app.container.scheduler.cancel(context)
             return
         }

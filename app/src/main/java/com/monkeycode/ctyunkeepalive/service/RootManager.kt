@@ -4,6 +4,7 @@ import android.content.Context
 import com.monkeycode.ctyunkeepalive.core.LogLevel
 import com.monkeycode.ctyunkeepalive.data.LogRepository
 import java.io.File
+import java.util.UUID
 
 class RootManager(
     private val appContext: Context,
@@ -12,6 +13,7 @@ class RootManager(
     private val watchdogScript = File(appContext.filesDir, "ctyun-watchdog.sh")
     private val watchdogPidFile = File(appContext.filesDir, "ctyun-watchdog.pid")
     private val manualStopFile = File(appContext.filesDir, "ctyun-manual-stop.flag")
+    private val watchdogTokenFile = File(appContext.filesDir, "ctyun-watchdog.token")
 
     fun ensureRoot(): Boolean {
         return runCatching {
@@ -24,11 +26,12 @@ class RootManager(
     }
 
     fun startWatchdog(): Boolean {
+        val token = watchdogToken()
         val script = buildWatchdogScript()
         watchdogScript.parentFile?.mkdirs()
         watchdogScript.writeText(script)
         watchdogScript.setExecutable(true)
-        val command = "if [ -f \"${watchdogPidFile.absolutePath}\" ]; then PID=${'$'}(cat \"${watchdogPidFile.absolutePath}\"); if [ -n \"${'$'}PID\" ] && kill -0 ${'$'}PID 2>/dev/null; then exit 0; fi; fi; nohup sh \"${watchdogScript.absolutePath}\" >/dev/null 2>&1 &"
+        val command = "if [ -f \"${watchdogPidFile.absolutePath}\" ]; then PID=${'$'}(cat \"${watchdogPidFile.absolutePath}\"); if [ -n \"${'$'}PID\" ] && kill -0 ${'$'}PID 2>/dev/null; then exit 0; fi; fi; WATCHDOG_TOKEN=\"$token\" nohup sh \"${watchdogScript.absolutePath}\" >/dev/null 2>&1 &"
         return runCatching {
             ProcessBuilder("su", "-c", command).start().waitFor() == 0
         }.onSuccess {
@@ -60,15 +63,25 @@ class RootManager(
 
     fun isManualStopMarked(): Boolean = manualStopFile.exists()
 
+    fun watchdogToken(): String {
+        if (!watchdogTokenFile.exists()) {
+            watchdogTokenFile.parentFile?.mkdirs()
+            watchdogTokenFile.writeText(UUID.randomUUID().toString())
+        }
+        return watchdogTokenFile.readText().trim().ifBlank {
+            UUID.randomUUID().toString().also { watchdogTokenFile.writeText(it) }
+        }
+    }
+
     private fun buildWatchdogScript(): String {
         val packageName = appContext.packageName
-        val serviceComponent = "$packageName/.service.KeepAliveForegroundService"
+        val receiverComponent = "$packageName/.service.WatchdogReceiver"
         return """
 #!/system/bin/sh
 PID_FILE="${watchdogPidFile.absolutePath}"
 STOP_FILE="${manualStopFile.absolutePath}"
-SERVICE_COMPONENT="$serviceComponent"
-SERVICE_ACTION="${KeepAliveForegroundService.ACTION_START_SERVICE}"
+RECEIVER_COMPONENT="$receiverComponent"
+WATCHDOG_ACTION="${WatchdogReceiver.ACTION_RESTORE_SERVICE}"
 
 echo ${'$'}${'$'} > "${'$'}PID_FILE"
 
@@ -77,8 +90,10 @@ do
   if [ -f "${'$'}STOP_FILE" ]; then
     exit 0
   fi
-  if ! dumpsys activity services "${'$'}SERVICE_COMPONENT" | grep -q "KeepAliveForegroundService"; then
-    am start-foreground-service -n "${'$'}SERVICE_COMPONENT" -a "${'$'}SERVICE_ACTION" >/dev/null 2>&1 || am startservice -n "${'$'}SERVICE_COMPONENT" -a "${'$'}SERVICE_ACTION" >/dev/null 2>&1
+  if ! dumpsys activity services | grep -q "KeepAliveForegroundService"; then
+    if [ -n "${'$'}WATCHDOG_TOKEN" ]; then
+      am broadcast -n "${'$'}RECEIVER_COMPONENT" -a "${'$'}WATCHDOG_ACTION" --es token "${'$'}WATCHDOG_TOKEN" >/dev/null 2>&1
+    fi
     sleep 8
   fi
   sleep 20

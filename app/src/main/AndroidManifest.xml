@@ -54,6 +54,11 @@
             android:name=".service.ScheduleReceiver"
             android:enabled="true"
             android:exported="false" />
+
+        <receiver
+            android:name=".service.WatchdogReceiver"
+            android:enabled="true"
+            android:exported="true" />
     </application>
 
 </manifest>
