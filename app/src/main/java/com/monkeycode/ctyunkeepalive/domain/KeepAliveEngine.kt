@@ -94,6 +94,7 @@ class KeepAliveEngine(
         dashboard.value = dashboard.value.copy(rootGranted = rootGranted, pythonReady = pythonReady, ocrReady = ocrReady)
         logRepository.append(LogLevel.INFO, "启动检测完成: ROOT=$rootGranted Python=$pythonReady OCR=$ocrReady")
         if (rootGranted) {
+            rootManager.applyRootHardening()
             rootManager.startWatchdog()
         }
         if (rootManager.isBackgroundKeepAliveEnabled() && !rootManager.isKeepAliveServiceRunning()) {
@@ -624,14 +625,14 @@ class KeepAliveEngine(
     }
 
     private fun scheduleIfNeeded(settings: AppSettings) {
-        val manuallyStopped = settingsRepository.stats().value.currentProgress == STOPPED_PROGRESS
-        if (settings.cronEnabled && !manuallyStopped) {
+        val backgroundKeepAliveEnabled = rootManager.isBackgroundKeepAliveEnabled()
+        if (settings.cronEnabled && backgroundKeepAliveEnabled) {
             scheduler.schedule(appContext)
             val nextRunAt = System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L
             updateStats(settingsRepository.stats().value.copy(nextRunAt = nextRunAt))
         } else {
             scheduler.cancel(appContext)
-            if (manuallyStopped && settingsRepository.stats().value.nextRunAt != 0L) {
+            if (settingsRepository.stats().value.nextRunAt != 0L) {
                 updateStats(settingsRepository.stats().value.copy(nextRunAt = 0L))
             }
         }

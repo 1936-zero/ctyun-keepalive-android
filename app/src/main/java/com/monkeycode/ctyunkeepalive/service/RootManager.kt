@@ -2,6 +2,7 @@ package com.monkeycode.ctyunkeepalive.service
 
 import android.app.ActivityManager
 import android.content.Context
+import android.os.Process
 import com.monkeycode.ctyunkeepalive.core.LogLevel
 import com.monkeycode.ctyunkeepalive.data.LogRepository
 import java.io.File
@@ -16,15 +17,28 @@ class RootManager(
     private val manualStopFile = File(appContext.filesDir, "ctyun-manual-stop.flag")
     private val backgroundKeepAliveFile = File(appContext.filesDir, "ctyun-background-keepalive.flag")
     private val watchdogTokenFile = File(appContext.filesDir, "ctyun-watchdog.token")
+    @Volatile private var rootGrantedCache: Boolean? = null
+    @Volatile private var hardenedPid: Int = -1
 
-    fun ensureRoot(): Boolean {
-        return runCatching {
+    fun ensureRoot(force: Boolean = false): Boolean {
+        rootGrantedCache?.let { cached ->
+            if (!force) return cached
+        }
+        val result = runCatching {
             val process = ProcessBuilder("su", "-c", "id").start()
             process.waitFor() == 0
         }.onSuccess {
             if (it) logRepository.append(LogLevel.SUCCESS, "ROOT 权限检测通过")
             else logRepository.append(LogLevel.ERROR, "ROOT 权限不可用")
         }.getOrDefault(false)
+        rootGrantedCache = result
+        return result
+    }
+
+    fun onAppProcessStarted() {
+        if (!ensureRoot()) return
+        applyRootHardening()
+        startWatchdog()
     }
 
     fun startWatchdog(): Boolean {
@@ -100,6 +114,48 @@ class RootManager(
         return manager.getRunningServices(Int.MAX_VALUE).any { it.service.className == KeepAliveForegroundService::class.java.name }
     }
 
+    fun applyRootHardening(): Boolean {
+        val pid = Process.myPid()
+        if (hardenedPid == pid) return true
+        val packageName = appContext.packageName
+        val command = """
+PKG=\"$packageName\"
+PID=$pid
+echo -1000 > /proc/${'$'}PID/oom_score_adj 2>/dev/null || true
+renice -20 -p ${'$'}PID >/dev/null 2>&1 || true
+cmd deviceidle whitelist +\"${'$'}PKG\" >/dev/null 2>&1 || dumpsys deviceidle whitelist +\"${'$'}PKG\" >/dev/null 2>&1 || true
+am set-inactive \"${'$'}PKG\" false >/dev/null 2>&1 || true
+cmd appops set \"${'$'}PKG\" RUN_IN_BACKGROUND allow >/dev/null 2>&1 || true
+cmd appops set \"${'$'}PKG\" RUN_ANY_IN_BACKGROUND allow >/dev/null 2>&1 || true
+cmd appops set \"${'$'}PKG\" START_FOREGROUND allow >/dev/null 2>&1 || true
+cmd appops set \"${'$'}PKG\" WAKE_LOCK allow >/dev/null 2>&1 || true
+cmd appops set \"${'$'}PKG\" SYSTEM_ALERT_WINDOW allow >/dev/null 2>&1 || true
+cmd appops set \"${'$'}PKG\" AUTO_REVOKE_PERMISSIONS_IF_UNUSED ignore >/dev/null 2>&1 || true
+cmd app_hibernation set-state --global \"${'$'}PKG\" false >/dev/null 2>&1 || true
+cmd app_hibernation set-state \"${'$'}PKG\" false >/dev/null 2>&1 || true
+exit 0
+""".trimIndent()
+        val exitCode = runCatching {
+            ProcessBuilder("su", "-c", command).start().waitFor()
+        }.getOrDefault(-1)
+        val applied = exitCode == 0
+        if (applied) {
+            hardenedPid = pid
+            val oomScoreAdj = runCatching { File("/proc/$pid/oom_score_adj").readText().trim() }.getOrNull().orEmpty()
+            logRepository.append(
+                LogLevel.INFO,
+                if (oomScoreAdj.isNotBlank()) {
+                    "已应用 ROOT 进程保护: pid=$pid oom_score_adj=$oomScoreAdj deviceidle白名单=已尝试 后台运行豁免=已尝试"
+                } else {
+                    "已应用 ROOT 进程保护: pid=$pid deviceidle白名单=已尝试 后台运行豁免=已尝试"
+                }
+            )
+        } else {
+            logRepository.append(LogLevel.WARNING, "ROOT 进程保护应用失败")
+        }
+        return applied
+    }
+
     fun watchdogToken(): String {
         if (!watchdogTokenFile.exists()) {
             watchdogTokenFile.parentFile?.mkdirs()
@@ -113,13 +169,11 @@ class RootManager(
     private fun buildWatchdogScript(): String {
         val packageName = appContext.packageName
         val receiverComponent = "$packageName/.service.WatchdogReceiver"
-        val launcherComponent = "$packageName/.MainActivity"
         return """
 #!/system/bin/sh
 PID_FILE="${watchdogPidFile.absolutePath}"
 PACKAGE_NAME="$packageName"
 RECEIVER_COMPONENT="$receiverComponent"
-LAUNCHER_COMPONENT="$launcherComponent"
 WATCHDOG_ACTION="${WatchdogReceiver.ACTION_RESTORE_SERVICE}"
 
 echo ${'$'}${'$'} > "${'$'}PID_FILE"
@@ -134,10 +188,6 @@ do
   if ! is_app_online; then
     if [ -n "${'$'}WATCHDOG_TOKEN" ]; then
       am broadcast -n "${'$'}RECEIVER_COMPONENT" -a "${'$'}WATCHDOG_ACTION" --es token "${'$'}WATCHDOG_TOKEN" >/dev/null 2>&1
-    fi
-    sleep 4
-    if ! is_app_online; then
-      am start -n "${'$'}LAUNCHER_COMPONENT" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER >/dev/null 2>&1 || monkey -p "${'$'}PACKAGE_NAME" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
     fi
     sleep 8
   fi

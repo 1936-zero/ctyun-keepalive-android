@@ -14,6 +14,7 @@ class MainApplication : Application() {
         MMKV.initialize(this)
         container = AppContainer(this)
         installCrashLogger()
+        container.rootManager.onAppProcessStarted()
     }
 
     private fun installCrashLogger() {
