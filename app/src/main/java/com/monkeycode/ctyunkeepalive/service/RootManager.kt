@@ -11,6 +11,7 @@ class RootManager(
 ) {
     private val watchdogScript = File(appContext.filesDir, "ctyun-watchdog.sh")
     private val watchdogPidFile = File(appContext.filesDir, "ctyun-watchdog.pid")
+    private val manualStopFile = File(appContext.filesDir, "ctyun-manual-stop.flag")
 
     fun ensureRoot(): Boolean {
         return runCatching {
@@ -45,12 +46,27 @@ class RootManager(
         }.getOrDefault(false)
     }
 
+    fun markManualStop() {
+        manualStopFile.parentFile?.mkdirs()
+        manualStopFile.writeText("stopped")
+    }
+
+    fun clearManualStop() {
+        if (manualStopFile.exists()) {
+            manualStopFile.writeText("")
+            manualStopFile.delete()
+        }
+    }
+
+    fun isManualStopMarked(): Boolean = manualStopFile.exists()
+
     private fun buildWatchdogScript(): String {
         val packageName = appContext.packageName
         val serviceComponent = "$packageName/.service.KeepAliveForegroundService"
         return """
 #!/system/bin/sh
 PID_FILE="${watchdogPidFile.absolutePath}"
+STOP_FILE="${manualStopFile.absolutePath}"
 SERVICE_COMPONENT="$serviceComponent"
 SERVICE_ACTION="${KeepAliveForegroundService.ACTION_START_SERVICE}"
 
@@ -58,6 +74,9 @@ echo ${'$'}${'$'} > "${'$'}PID_FILE"
 
 while true
 do
+  if [ -f "${'$'}STOP_FILE" ]; then
+    exit 0
+  fi
   if ! dumpsys activity services "${'$'}SERVICE_COMPONENT" | grep -q "KeepAliveForegroundService"; then
     am start-foreground-service -n "${'$'}SERVICE_COMPONENT" -a "${'$'}SERVICE_ACTION" >/dev/null 2>&1 || am startservice -n "${'$'}SERVICE_COMPONENT" -a "${'$'}SERVICE_ACTION" >/dev/null 2>&1
     sleep 8

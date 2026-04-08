@@ -18,9 +18,15 @@ class KeepAliveForegroundService : Service() {
         val app = application as MainApplication
         return when (intent?.action) {
             ACTION_START_SERVICE -> {
-                app.container.rootManager.startWatchdog()
-                app.container.keepAliveEngine.startBackgroundService()
-                START_STICKY
+                if (app.container.rootManager.isManualStopMarked()) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    START_NOT_STICKY
+                } else {
+                    app.container.rootManager.startWatchdog()
+                    app.container.keepAliveEngine.startBackgroundService()
+                    START_STICKY
+                }
             }
             ACTION_RUN_SCHEDULED -> {
                 app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
@@ -31,6 +37,7 @@ class KeepAliveForegroundService : Service() {
                 START_STICKY
             }
             ACTION_STOP -> {
+                app.container.rootManager.markManualStop()
                 app.container.rootManager.stopWatchdog()
                 app.container.keepAliveEngine.stop()
                 stopForeground(STOP_FOREGROUND_REMOVE)
