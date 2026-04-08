@@ -8,7 +8,9 @@ import com.monkeycode.ctyunkeepalive.app.MainApplication
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext as MainApplication
-        if (app.container.settingsRepository.settings().value.cronEnabled) {
+        val settings = app.container.settingsRepository.settings().value
+        val stats = app.container.settingsRepository.stats().value
+        if (settings.cronEnabled && stats.currentProgress != "已停止") {
             KeepAliveForegroundService.startServiceOnly(context)
             app.container.scheduler.schedule(context)
         }

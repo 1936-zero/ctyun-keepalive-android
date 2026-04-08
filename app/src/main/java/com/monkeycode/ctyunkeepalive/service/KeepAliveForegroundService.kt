@@ -16,21 +16,29 @@ class KeepAliveForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val app = application as MainApplication
-        when (intent?.action) {
+        return when (intent?.action) {
             ACTION_START_SERVICE -> {
                 app.container.rootManager.startWatchdog()
                 app.container.keepAliveEngine.startBackgroundService()
+                START_STICKY
             }
-            ACTION_RUN_SCHEDULED -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
-            ACTION_RUN_MANUAL -> app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)
+            ACTION_RUN_SCHEDULED -> {
+                app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.SCHEDULED)
+                START_STICKY
+            }
+            ACTION_RUN_MANUAL -> {
+                app.container.keepAliveEngine.startNow(KeepAliveEngine.RunTrigger.MANUAL)
+                START_STICKY
+            }
             ACTION_STOP -> {
                 app.container.rootManager.stopWatchdog()
                 app.container.keepAliveEngine.stop()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
+                START_NOT_STICKY
             }
+            else -> START_STICKY
         }
-        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

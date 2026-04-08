@@ -7,8 +7,14 @@ import com.monkeycode.ctyunkeepalive.app.MainApplication
 
 class ScheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        KeepAliveForegroundService.runScheduled(context)
         val app = context.applicationContext as MainApplication
+        val settings = app.container.settingsRepository.settings().value
+        val stats = app.container.settingsRepository.stats().value
+        if (!settings.cronEnabled || stats.currentProgress == "已停止") {
+            app.container.scheduler.cancel(context)
+            return
+        }
+        KeepAliveForegroundService.runScheduled(context)
         app.container.scheduler.schedule(context)
     }
 }

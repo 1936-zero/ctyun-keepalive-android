@@ -46,6 +46,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 private const val SUMMARY_ABSENT = "-"
+private const val STOPPED_PROGRESS = "已停止"
 
 class KeepAliveEngine(
     private val appContext: Context,
@@ -112,6 +113,12 @@ class KeepAliveEngine(
     }
 
     fun startNow(trigger: RunTrigger = RunTrigger.SCHEDULED) {
+        val currentStats = settingsRepository.stats().value
+        if (trigger == RunTrigger.SCHEDULED && currentStats.currentProgress == STOPPED_PROGRESS) {
+            logRepository.append(LogLevel.INFO, "已手动停止后台保活，忽略本次定时触发")
+            scheduler.cancel(appContext)
+            return
+        }
         if (runningJob?.isActive == true) {
             if (trigger == RunTrigger.MANUAL) {
                 logRepository.append(LogLevel.WARNING, "已有保活任务正在执行，请稍后再试")
@@ -163,9 +170,10 @@ class KeepAliveEngine(
 
     fun stop() {
         val stats = settingsRepository.stats().value
-        if (!stats.running && stats.currentProgress == "已停止") return
+        if (!stats.running && stats.currentProgress == STOPPED_PROGRESS) return
         runningJob?.cancel()
-        updateStats(stats.copy(running = false, currentProgress = "已停止"))
+        scheduler.cancel(appContext)
+        updateStats(stats.copy(running = false, currentProgress = STOPPED_PROGRESS, nextRunAt = 0L))
         logRepository.append(LogLevel.WARNING, "保活任务已停止")
     }
 
@@ -604,12 +612,16 @@ class KeepAliveEngine(
     }
 
     private fun scheduleIfNeeded(settings: AppSettings) {
-        if (settings.cronEnabled) {
+        val manuallyStopped = settingsRepository.stats().value.currentProgress == STOPPED_PROGRESS
+        if (settings.cronEnabled && !manuallyStopped) {
             scheduler.schedule(appContext)
             val nextRunAt = System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L
             updateStats(settingsRepository.stats().value.copy(nextRunAt = nextRunAt))
         } else {
             scheduler.cancel(appContext)
+            if (manuallyStopped && settingsRepository.stats().value.nextRunAt != 0L) {
+                updateStats(settingsRepository.stats().value.copy(nextRunAt = 0L))
+            }
         }
     }
 }
