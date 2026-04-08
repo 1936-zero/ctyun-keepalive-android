@@ -216,13 +216,13 @@ class KeepAliveEngine(
 
     private suspend fun runAccount(account: StoredAccount): Boolean {
         val masked = maskAccount(account.credential.username)
+        val deviceCode = if (account.useCustomDeviceCode && account.deviceCode.isNotBlank()) {
+            account.deviceCode.trim()
+        } else {
+            buildDeviceCode(account.credential.username)
+        }
         return runCatching {
             logRepository.append(LogLevel.INFO, "$masked 开始执行保活")
-            val deviceCode = if (account.useCustomDeviceCode && account.deviceCode.isNotBlank()) {
-                account.deviceCode.trim()
-            } else {
-                buildDeviceCode(account.credential.username)
-            }
             if (!account.useCustomDeviceCode) {
                 accountRepository.updateDeviceCode(account.credential.username, deviceCode)
             }
@@ -238,7 +238,6 @@ class KeepAliveEngine(
                 val detail = if (error is ApiException) "code=${error.code} message=${error.message}" else "message=${error.message}"
                 logRepository.append(LogLevel.WARNING, "$masked [auth] 主流程鉴权失效，准备整链路重试 ($detail)")
                 accountRepository.updateAuth(account.credential.username, null)
-                val deviceCode = account.deviceCode.ifBlank { buildDeviceCode(account.credential.username) }
                 val refreshed = loginWithCaptchaRetry(account, deviceCode)
                 accountRepository.updateAuth(account.credential.username, refreshed)
                 logRepository.append(LogLevel.INFO, "$masked [auth] 已自动重新登录，重试整条保活链路")
@@ -289,18 +288,7 @@ class KeepAliveEngine(
                     logRepository.append(LogLevel.INFO, "$masked [list] 已自动重新登录，重试获取设备列表")
                     runCatching { apiClient.listDevices(refreshed, deviceCode) }
                         .recoverCatching { retryError ->
-                            if (shouldRetryAuthExpired(retryError)) {
-                                val newDeviceCode = buildDeviceCode(account.credential.username + System.currentTimeMillis())
-                                logRepository.append(LogLevel.WARNING, "$masked [list] 重登录后仍鉴权失败，准备重置 deviceCode=${short(newDeviceCode, 16)}")
-                                accountRepository.updateDeviceCode(account.credential.username, newDeviceCode)
-                                accountRepository.updateAuth(account.credential.username, null)
-                                val refreshedWithNewDevice = loginWithCaptchaRetry(account.copy(deviceCode = newDeviceCode), newDeviceCode)
-                                accountRepository.updateAuth(account.credential.username, refreshedWithNewDevice)
-                                logRepository.append(LogLevel.INFO, "$masked [list] 已使用新 deviceCode 重新登录，再次获取设备列表")
-                                apiClient.listDevices(refreshedWithNewDevice, newDeviceCode)
-                            } else {
-                                throw retryError
-                            }
+                            throw retryError
                         }
                         .getOrThrow()
                 } else {
