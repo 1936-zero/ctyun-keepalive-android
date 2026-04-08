@@ -23,6 +23,7 @@ import com.monkeycode.ctyunkeepalive.network.ApiException
 import com.monkeycode.ctyunkeepalive.network.CtyunApiClient
 import com.monkeycode.ctyunkeepalive.ocr.OfflineOcrEngine
 import com.monkeycode.ctyunkeepalive.service.CronScheduler
+import com.monkeycode.ctyunkeepalive.service.KeepAliveForegroundService
 import com.monkeycode.ctyunkeepalive.service.NotificationCenter
 import com.monkeycode.ctyunkeepalive.service.RootManager
 import kotlinx.coroutines.CoroutineScope
@@ -92,6 +93,12 @@ class KeepAliveEngine(
         val ocrReady = pythonReady && ocrEngine.isReady()
         dashboard.value = dashboard.value.copy(rootGranted = rootGranted, pythonReady = pythonReady, ocrReady = ocrReady)
         logRepository.append(LogLevel.INFO, "启动检测完成: ROOT=$rootGranted Python=$pythonReady OCR=$ocrReady")
+        if (rootGranted) {
+            rootManager.startWatchdog()
+        }
+        if (rootManager.isBackgroundKeepAliveEnabled() && !rootManager.isKeepAliveServiceRunning()) {
+            KeepAliveForegroundService.startServiceOnly(appContext)
+        }
         scheduleIfNeeded(settingsRepository.settings().value)
     }
 
@@ -113,7 +120,7 @@ class KeepAliveEngine(
     }
 
     fun startNow(trigger: RunTrigger = RunTrigger.SCHEDULED) {
-        if (trigger == RunTrigger.SCHEDULED && rootManager.isManualStopMarked()) {
+        if (trigger == RunTrigger.SCHEDULED && !rootManager.isBackgroundKeepAliveEnabled()) {
             logRepository.append(LogLevel.INFO, "已手动停止后台保活，忽略本次定时触发")
             scheduler.cancel(appContext)
             return

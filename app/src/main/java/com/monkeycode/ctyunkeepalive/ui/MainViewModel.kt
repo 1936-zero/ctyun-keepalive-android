@@ -43,7 +43,7 @@ class MainViewModel(
     }
 
     fun startService(context: android.content.Context) {
-        container.rootManager.clearManualStop()
+        container.rootManager.enableBackgroundKeepAlive()
         KeepAliveForegroundService.startServiceOnly(context)
     }
 

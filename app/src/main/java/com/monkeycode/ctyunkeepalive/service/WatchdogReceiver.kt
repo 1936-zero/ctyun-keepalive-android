@@ -15,12 +15,13 @@ class WatchdogReceiver : BroadcastReceiver() {
             app.container.logRepository.append(LogLevel.WARNING, "收到无效的 watchdog 恢复请求，已忽略")
             return
         }
-        if (app.container.rootManager.isManualStopMarked()) {
-            app.container.logRepository.append(LogLevel.INFO, "已手动停止后台保活，忽略 watchdog 恢复请求")
-            return
+        app.container.logRepository.append(LogLevel.INFO, "ROOT watchdog 检测到应用离线，正在恢复 app 在线状态")
+        if (app.container.rootManager.isBackgroundKeepAliveEnabled()) {
+            app.container.logRepository.append(LogLevel.INFO, "检测到后台保活服务之前处于启用状态，正在恢复后台保活服务")
+            KeepAliveForegroundService.startServiceOnly(context)
+        } else {
+            app.container.logRepository.append(LogLevel.INFO, "后台保活服务未启用，本次仅恢复 app 在线状态")
         }
-        app.container.logRepository.append(LogLevel.INFO, "ROOT watchdog 检测到服务缺失，正在恢复后台保活服务")
-        KeepAliveForegroundService.startServiceOnly(context)
     }
 
     companion object {

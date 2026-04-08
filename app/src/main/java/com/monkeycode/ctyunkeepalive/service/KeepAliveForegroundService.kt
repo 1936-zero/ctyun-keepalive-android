@@ -18,7 +18,7 @@ class KeepAliveForegroundService : Service() {
         val app = application as MainApplication
         return when (intent?.action) {
             ACTION_START_SERVICE -> {
-                if (app.container.rootManager.isManualStopMarked()) {
+                if (!app.container.rootManager.isBackgroundKeepAliveEnabled()) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     START_NOT_STICKY
@@ -37,8 +37,7 @@ class KeepAliveForegroundService : Service() {
                 START_STICKY
             }
             ACTION_STOP -> {
-                app.container.rootManager.markManualStop()
-                app.container.rootManager.stopWatchdog()
+                app.container.rootManager.disableBackgroundKeepAlive()
                 app.container.keepAliveEngine.stop()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()

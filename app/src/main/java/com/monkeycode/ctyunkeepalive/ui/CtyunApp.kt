@@ -275,7 +275,7 @@ private fun HomeScreen(
                         }
                     }
                     PixelOutlineButton(onClick = { viewModel.stop(context) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("停止服务")
+                        Text("停止后台保活")
                     }
                 }
             }
@@ -674,7 +674,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("服务管理", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
                 Text("固定 Cron 表达式: ${AppConfig.cronExpression}", color = VaporInk)
-                Text("服务说明: 后台保活服务 + AlarmManager + ROOT watchdog", color = VaporMuted)
+                Text("服务说明: ROOT watchdog 负责维持 app 在线，后台保活服务负责保活天翼云手机", color = VaporMuted)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     PixelPrimaryButton(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重新检测权限") }
                     PixelOutlineButton(onClick = { viewModel.startService(context) }, modifier = Modifier.weight(1f)) { Text("重启后台保活服务") }
