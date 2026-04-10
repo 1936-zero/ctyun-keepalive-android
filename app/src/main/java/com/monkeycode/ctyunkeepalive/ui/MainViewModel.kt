@@ -77,5 +77,5 @@ class MainViewModel(
 
     fun clearAllData() = container.keepAliveEngine.clearAllData()
 
-    fun refreshEnvironment() = container.keepAliveEngine.bootstrap()
+    fun refreshEnvironment() = container.keepAliveEngine.bootstrap(force = true)
 }

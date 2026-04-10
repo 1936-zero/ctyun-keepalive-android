@@ -24,12 +24,23 @@ class RootManager(
         rootGrantedCache?.let { cached ->
             if (!force) return cached
         }
+        logRepository.append(LogLevel.DEBUG, "开始检测 ROOT 权限...")
         val result = runCatching {
             val process = ProcessBuilder("su", "-c", "id").start()
-            process.waitFor() == 0
+            val finished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
+            if (!finished) {
+                logRepository.append(LogLevel.WARNING, "ROOT 检测超时，可能需要用户授权")
+                process.destroyForcibly()
+                return@runCatching false
+            }
+            val exitCode = process.exitValue()
+            logRepository.append(LogLevel.DEBUG, "ROOT 检测命令退出码: $exitCode")
+            exitCode == 0
         }.onSuccess {
             if (it) logRepository.append(LogLevel.SUCCESS, "ROOT 权限检测通过")
             else logRepository.append(LogLevel.ERROR, "ROOT 权限不可用")
+        }.onFailure { error ->
+            logRepository.append(LogLevel.ERROR, "ROOT 权限检测异常: ${error.message}")
         }.getOrDefault(false)
         rootGrantedCache = result
         return result

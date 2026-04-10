@@ -87,20 +87,22 @@ class KeepAliveEngine(
 
     fun manualRunCompleted(): SharedFlow<Long> = manualRunCompleted.asSharedFlow()
 
-    fun bootstrap() {
-        val rootGranted = rootManager.ensureRoot()
-        val pythonReady = ocrEngine.ensureReady()
-        val ocrReady = pythonReady && ocrEngine.isReady()
-        dashboard.value = dashboard.value.copy(rootGranted = rootGranted, pythonReady = pythonReady, ocrReady = ocrReady)
-        logRepository.append(LogLevel.INFO, "启动检测完成: ROOT=$rootGranted Python=$pythonReady OCR=$ocrReady")
-        if (rootGranted) {
-            rootManager.applyRootHardening()
-            rootManager.startWatchdog()
+    fun bootstrap(force: Boolean = false) {
+        scope.launch {
+            val rootGranted = rootManager.ensureRoot(force)
+            val pythonReady = ocrEngine.ensureReady()
+            val ocrReady = pythonReady && ocrEngine.isReady()
+            dashboard.value = dashboard.value.copy(rootGranted = rootGranted, pythonReady = pythonReady, ocrReady = ocrReady)
+            logRepository.append(LogLevel.INFO, "启动检测完成: ROOT=$rootGranted Python=$pythonReady OCR=$ocrReady")
+            if (rootGranted) {
+                rootManager.applyRootHardening()
+                rootManager.startWatchdog()
+            }
+            if (rootManager.isBackgroundKeepAliveEnabled() && !rootManager.isKeepAliveServiceRunning()) {
+                KeepAliveForegroundService.startServiceOnly(appContext)
+            }
+            scheduleIfNeeded(settingsRepository.settings().value)
         }
-        if (rootManager.isBackgroundKeepAliveEnabled() && !rootManager.isKeepAliveServiceRunning()) {
-            KeepAliveForegroundService.startServiceOnly(appContext)
-        }
-        scheduleIfNeeded(settingsRepository.settings().value)
     }
 
     fun startBackgroundService() {
