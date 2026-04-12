@@ -17,10 +17,6 @@ class RootManager(
     private val manualStopFile = File(appContext.filesDir, "ctyun-manual-stop.flag")
     private val backgroundKeepAliveFile = File(appContext.filesDir, "ctyun-background-keepalive.flag")
     private val watchdogTokenFile = File(appContext.filesDir, "ctyun-watchdog.token")
-    private val smartMonitorScript = File(appContext.filesDir, "ctyun-smart-monitor.sh")
-    private val smartMonitorPidFile = File(appContext.filesDir, "ctyun-smart-monitor.pid")
-    private val smartInputActivityFile = File(appContext.filesDir, "ctyun-smart-input.ts")
-    private val smartUsbActivityFile = File(appContext.filesDir, "ctyun-smart-usb.ts")
     @Volatile private var rootGrantedCache: Boolean? = null
     @Volatile private var hardenedPid: Int = -1
 
@@ -118,32 +114,29 @@ class RootManager(
     fun isBackgroundKeepAliveEnabled(): Boolean = backgroundKeepAliveFile.exists()
 
     fun startSmartActivityMonitor(): Boolean {
-        if (!ensureRoot()) return false
-        val script = buildSmartMonitorScript()
-        smartMonitorScript.parentFile?.mkdirs()
-        smartMonitorScript.writeText(script)
-        smartMonitorScript.setExecutable(true)
-        val command = "if [ -f \"${smartMonitorPidFile.absolutePath}\" ]; then PID=${'$'}(cat \"${smartMonitorPidFile.absolutePath}\"); if [ -n \"${'$'}PID\" ] && kill -0 ${'$'}PID 2>/dev/null; then exit 10; fi; fi; nohup sh \"${smartMonitorScript.absolutePath}\" >/dev/null 2>&1 &"
-        val exitCode = runCatching { ProcessBuilder("su", "-c", command).start().waitFor() }.getOrDefault(-1)
-        if (exitCode == 0) logRepository.append(LogLevel.INFO, "智能保活活动监控已启动")
-        return exitCode == 0 || exitCode == 10
+        val enabled = SmartKeepAliveTracker.isAccessibilityEnabled(appContext)
+        if (enabled) {
+            logRepository.append(LogLevel.INFO, "智能保活活动监控已启用（无障碍 + USB）")
+        } else {
+            logRepository.append(LogLevel.WARNING, "智能保活未启用无障碍服务，输入活动检测将不可用")
+        }
+        return enabled
     }
 
     fun stopSmartActivityMonitor(): Boolean {
-        val command = "if [ -f \"${smartMonitorPidFile.absolutePath}\" ]; then PID=${'$'}(cat \"${smartMonitorPidFile.absolutePath}\"); if [ -n \"${'$'}PID\" ]; then kill ${'$'}PID 2>/dev/null; fi; fi; rm -f \"${smartMonitorPidFile.absolutePath}\""
-        val exitCode = runCatching { ProcessBuilder("su", "-c", command).start().waitFor() }.getOrDefault(-1)
-        if (exitCode == 0) logRepository.append(LogLevel.INFO, "智能保活活动监控已停止")
-        return exitCode == 0
+        logRepository.append(LogLevel.INFO, "智能保活活动监控已停止")
+        return true
     }
 
     fun recordUsbActivity() {
-        smartUsbActivityFile.parentFile?.mkdirs()
-        smartUsbActivityFile.writeText(System.currentTimeMillis().toString())
+        SmartKeepAliveTracker.recordUsbActivity(appContext)
     }
 
-    fun lastInputActivityAt(): Long = smartInputActivityFile.takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull() ?: 0L
+    fun lastInputActivityAt(): Long = SmartKeepAliveTracker.lastInputActivityAt(appContext)
 
-    fun lastUsbActivityAt(): Long = smartUsbActivityFile.takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull() ?: 0L
+    fun lastUsbActivityAt(): Long = SmartKeepAliveTracker.lastUsbActivityAt(appContext)
+
+    fun isSmartAccessibilityEnabled(): Boolean = SmartKeepAliveTracker.isAccessibilityEnabled(appContext)
 
     fun isAppProcessOnline(): Boolean {
         val manager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
@@ -235,26 +228,6 @@ do
     sleep 8
   fi
   sleep 20
-done
-""".trimIndent()
-    }
-
-    private fun buildSmartMonitorScript(): String {
-        return """
-#!/system/bin/sh
-PID_FILE="${smartMonitorPidFile.absolutePath}"
-INPUT_FILE="${smartInputActivityFile.absolutePath}"
-
-echo ${'$'}${'$'} > "${'$'}PID_FILE"
-touch "${'$'}INPUT_FILE"
-
-getevent -lt /dev/input/event* 2>/dev/null | while read -r line
-do
-  case "${'$'}line" in
-    *BTN_TOUCH*|*ABS_MT_TRACKING_ID*|*ABS_MT_POSITION_X*|*ABS_MT_POSITION_Y*)
-      date +%s000 > "${'$'}INPUT_FILE"
-      ;;
-  esac
 done
 """.trimIndent()
     }

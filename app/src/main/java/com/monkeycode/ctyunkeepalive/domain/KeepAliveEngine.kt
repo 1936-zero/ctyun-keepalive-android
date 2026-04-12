@@ -136,6 +136,9 @@ class KeepAliveEngine(
         scheduleIfNeeded(updated)
         logRepository.append(LogLevel.INFO, "智能保活开启")
         logRepository.append(LogLevel.INFO, "当前 Cron 已切换到 15 分钟")
+        if (!rootManager.isSmartAccessibilityEnabled()) {
+            logRepository.append(LogLevel.WARNING, "请在系统设置中启用无障碍服务，才能检测输入活动")
+        }
     }
 
     fun stopSmartKeepAlive() {
