@@ -656,6 +656,7 @@ private fun ConfigScreen(settings: AppSettings, padding: PaddingValues, viewMode
 @Composable
 private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel: MainViewModel) {
     val context = LocalContext.current
+    val smartAccessibilityEnabled = viewModel.isSmartAccessibilityEnabled()
     var confirmExit by remember { mutableStateOf(false) }
     if (confirmExit) {
         AlertDialog(
@@ -695,6 +696,24 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     PixelOutlineButton(onClick = { viewModel.clearLogs() }, modifier = Modifier.weight(1f)) { Text("清理缓存日志") }
                     PixelOutlineButton(onClick = { viewModel.refreshEnvironment() }, modifier = Modifier.weight(1f)) { Text("重置 OCR 模型") }
+                }
+            }
+        }
+        VaporPanel {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("智能保活", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
+                Text("无障碍状态: ${if (smartAccessibilityEnabled) "已开启" else "未开启"}", color = VaporInk)
+                Text("智能保活启用后：检测到无障碍输入活动或 USB/供电活动时暂停天翼云手机保活任务；连续 5 分钟无活动后恢复，并将 Cron 切换为每 15 分钟执行一次。", color = VaporMuted)
+                PixelOutlineButton(
+                    onClick = {
+                        val opened = viewModel.openAccessibilitySettings(context)
+                        if (!opened) {
+                            Toast.makeText(context, "无法打开无障碍设置，请手动前往系统设置开启", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("打开无障碍设置")
                 }
             }
         }
