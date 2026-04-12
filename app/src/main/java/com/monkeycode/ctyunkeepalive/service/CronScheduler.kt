@@ -9,11 +9,17 @@ import com.monkeycode.ctyunkeepalive.core.AppConfig
 class CronScheduler(
     private val context: Context,
 ) {
-    fun schedule(targetContext: Context = context) {
+    fun schedule(targetContext: Context = context, delayMs: Long = AppConfig.fixedScheduleMinutes * 60_000L) {
         val alarmManager = targetContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val pendingIntent = pendingIntent(targetContext)
-        val nextAt = System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L
+        val nextAt = System.currentTimeMillis() + delayMs
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextAt, pendingIntent)
+    }
+
+    fun scheduleAt(triggerAt: Long, targetContext: Context = context) {
+        val alarmManager = targetContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pendingIntent = pendingIntent(targetContext)
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
     }
 
     fun cancel(targetContext: Context = context) {

@@ -47,6 +47,10 @@ class MainViewModel(
         KeepAliveForegroundService.startServiceOnly(context)
     }
 
+    fun startSmartKeepAlive() = container.keepAliveEngine.startSmartKeepAlive()
+
+    fun stopSmartKeepAlive() = container.keepAliveEngine.stopSmartKeepAlive()
+
     fun stop(context: android.content.Context) {
         KeepAliveForegroundService.start(context, KeepAliveForegroundService.ACTION_STOP)
     }

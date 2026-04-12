@@ -71,6 +71,7 @@ class KeepAliveEngine(
     private val dashboard = MutableStateFlow(DashboardState())
     private val manualRunCompleted = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     private var runningJob: Job? = null
+    private var smartMonitorJob: Job? = null
 
     init {
         scope.launch {
@@ -101,25 +102,49 @@ class KeepAliveEngine(
             if (rootManager.isBackgroundKeepAliveEnabled() && !rootManager.isKeepAliveServiceRunning()) {
                 KeepAliveForegroundService.startServiceOnly(appContext)
             }
+            ensureSmartMonitor(settingsRepository.settings().value)
+            refreshSmartKeepAliveState(logTransition = false)
             scheduleIfNeeded(settingsRepository.settings().value)
         }
     }
 
     fun startBackgroundService() {
         val settings = settingsRepository.settings().value
-        val nextRun = if (settings.cronEnabled) System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L else 0L
+        val nextRun = if (settings.cronEnabled) System.currentTimeMillis() + currentScheduleMinutes(settings) * 60_000L else 0L
         updateStats(
             settingsRepository.stats().value.copy(
                 running = false,
                 currentProgress = if (settings.cronEnabled) "后台待命" else "后台服务已启动",
                 nextRunAt = nextRun,
+                smartKeepAliveState = computeSmartState(settings, settingsRepository.stats().value, System.currentTimeMillis()),
             )
         )
+        ensureSmartMonitor(settings)
         scheduleIfNeeded(settings)
         logRepository.append(
             LogLevel.INFO,
             if (settings.cronEnabled) "后台保活服务已启动，等待手动测试或定时任务" else "后台保活服务已启动，但定时任务已关闭"
         )
+    }
+
+    fun startSmartKeepAlive() {
+        val updated = settingsRepository.settings().value.copy(smartKeepAliveEnabled = true, cronEnabled = true)
+        settingsRepository.saveSettings(updated)
+        ensureSmartMonitor(updated)
+        refreshSmartKeepAliveState(logTransition = false)
+        updateStats(settingsRepository.stats().value.copy(currentProgress = "智能保活中"))
+        scheduleIfNeeded(updated)
+        logRepository.append(LogLevel.INFO, "智能保活开启")
+        logRepository.append(LogLevel.INFO, "当前 Cron 已切换到 15 分钟")
+    }
+
+    fun stopSmartKeepAlive() {
+        val updated = settingsRepository.settings().value.copy(smartKeepAliveEnabled = false)
+        settingsRepository.saveSettings(updated)
+        ensureSmartMonitor(updated)
+        updateStats(settingsRepository.stats().value.copy(smartKeepAliveState = "关闭", currentProgress = "后台待命"))
+        scheduleIfNeeded(updated)
+        logRepository.append(LogLevel.INFO, "智能保活已停止")
     }
 
     fun startNow(trigger: RunTrigger = RunTrigger.SCHEDULED) {
@@ -142,6 +167,30 @@ class KeepAliveEngine(
         }
         runningJob = scope.launch {
             val settings = settingsRepository.settings().value
+            if (trigger == RunTrigger.SCHEDULED && settings.smartKeepAliveEnabled) {
+                val now = System.currentTimeMillis()
+                val latestActivity = latestSmartActivityAt(now)
+                if (latestActivity > 0L && now - latestActivity < AppConfig.smartIdleRestoreMs) {
+                    val resumeAt = latestActivity + AppConfig.smartIdleRestoreMs
+                    val state = if (now - latestActivity < 30_000L) "已暂停" else "等待恢复"
+                    updateStats(
+                        settingsRepository.stats().value.copy(
+                            running = false,
+                            currentProgress = if (state == "已暂停") "智能保活因活动暂停" else "智能保活等待恢复",
+                            nextRunAt = resumeAt,
+                            smartKeepAliveState = state,
+                            lastInputActivityAt = rootManager.lastInputActivityAt(),
+                            lastUsbActivityAt = rootManager.lastUsbActivityAt(),
+                        )
+                    )
+                    scheduler.scheduleAt(resumeAt, appContext)
+                    logRepository.append(LogLevel.INFO, "智能保活因活动暂停")
+                    return@launch
+                }
+                if (settingsRepository.stats().value.smartKeepAliveState != "监控中") {
+                    logRepository.append(LogLevel.INFO, "智能保活 5分钟无活动恢复")
+                }
+            }
             val accounts = accountRepository.accounts().value
             if (accounts.isEmpty()) {
                 logRepository.append(LogLevel.WARNING, "没有可执行账号，请先添加天翼云手机账号")
@@ -162,7 +211,7 @@ class KeepAliveEngine(
                 }
             }.awaitAll()
 
-            val nextRun = System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L
+            val nextRun = System.currentTimeMillis() + currentScheduleMinutes(settings) * 60_000L
             val old = settingsRepository.stats().value
             val standby = trigger == RunTrigger.SCHEDULED && settings.cronEnabled
             updateStats(
@@ -174,6 +223,7 @@ class KeepAliveEngine(
                     lastRunAt = System.currentTimeMillis(),
                     nextRunAt = if (standby) nextRun else old.nextRunAt,
                     running = false,
+                    smartKeepAliveState = computeSmartState(settings, old, System.currentTimeMillis()),
                 )
             )
             notificationCenter.showPersistent(settingsRepository.stats().value)
@@ -205,8 +255,18 @@ class KeepAliveEngine(
 
     fun updateSettings(settings: AppSettings) {
         settingsRepository.saveSettings(settings)
+        ensureSmartMonitor(settings)
+        refreshSmartKeepAliveState(logTransition = false)
         scheduleIfNeeded(settings)
         logRepository.append(LogLevel.INFO, "参数配置已保存")
+    }
+
+    fun recordUsbActivity(source: String) {
+        rootManager.recordUsbActivity()
+        refreshSmartKeepAliveState(logTransition = true)
+        if (settingsRepository.settings().value.smartKeepAliveEnabled) {
+            logRepository.append(LogLevel.INFO, "智能保活检测到活动事件: ${source.ifBlank { "USB" }}")
+        }
     }
 
     fun clearAllData() {
@@ -617,8 +677,8 @@ class KeepAliveEngine(
     private fun scheduleIfNeeded(settings: AppSettings) {
         val backgroundKeepAliveEnabled = rootManager.isBackgroundKeepAliveEnabled()
         if (settings.cronEnabled && backgroundKeepAliveEnabled) {
-            scheduler.schedule(appContext)
-            val nextRunAt = System.currentTimeMillis() + AppConfig.fixedScheduleMinutes * 60_000L
+            val nextRunAt = System.currentTimeMillis() + currentScheduleMinutes(settings) * 60_000L
+            scheduler.schedule(appContext, currentScheduleMinutes(settings) * 60_000L)
             updateStats(settingsRepository.stats().value.copy(nextRunAt = nextRunAt))
         } else {
             scheduler.cancel(appContext)
@@ -626,5 +686,63 @@ class KeepAliveEngine(
                 updateStats(settingsRepository.stats().value.copy(nextRunAt = 0L))
             }
         }
+    }
+
+    private fun ensureSmartMonitor(settings: AppSettings) {
+        if (!settings.smartKeepAliveEnabled) {
+            smartMonitorJob?.cancel()
+            smartMonitorJob = null
+            rootManager.stopSmartActivityMonitor()
+            return
+        }
+        rootManager.startSmartActivityMonitor()
+        if (smartMonitorJob?.isActive == true) return
+        smartMonitorJob = scope.launch {
+            while (true) {
+                refreshSmartKeepAliveState(logTransition = false)
+                delay(5_000L)
+            }
+        }
+    }
+
+    private fun refreshSmartKeepAliveState(logTransition: Boolean) {
+        val settings = settingsRepository.settings().value
+        val current = settingsRepository.stats().value
+        val updated = current.copy(
+            smartKeepAliveState = computeSmartState(settings, current, System.currentTimeMillis()),
+            lastInputActivityAt = rootManager.lastInputActivityAt(),
+            lastUsbActivityAt = rootManager.lastUsbActivityAt(),
+        )
+        if (updated != current) {
+            if (logTransition && current.smartKeepAliveState != updated.smartKeepAliveState) {
+                when (updated.smartKeepAliveState) {
+                    "已暂停" -> logRepository.append(LogLevel.INFO, "智能保活因活动暂停")
+                    "等待恢复" -> logRepository.append(LogLevel.INFO, "智能保活等待恢复")
+                    "监控中" -> logRepository.append(LogLevel.INFO, "智能保活 5分钟无活动恢复")
+                }
+            }
+            updateStats(updated)
+        }
+    }
+
+    private fun computeSmartState(settings: AppSettings, stats: RunStats, now: Long): String {
+        if (!settings.smartKeepAliveEnabled) return "关闭"
+        val latest = latestSmartActivityAt(now)
+        if (latest <= 0L) return "监控中"
+        val delta = now - latest
+        return when {
+            delta < 30_000L -> "已暂停"
+            delta < AppConfig.smartIdleRestoreMs -> "等待恢复"
+            else -> "监控中"
+        }
+    }
+
+    private fun latestSmartActivityAt(now: Long): Long {
+        val latest = maxOf(rootManager.lastInputActivityAt(), rootManager.lastUsbActivityAt())
+        return if (latest in 1..now) latest else 0L
+    }
+
+    private fun currentScheduleMinutes(settings: AppSettings): Long {
+        return if (settings.smartKeepAliveEnabled) AppConfig.smartScheduleMinutes else AppConfig.fixedScheduleMinutes
     }
 }

@@ -253,6 +253,7 @@ private fun HomeScreen(
                         StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "未授权", if (dashboard.rootGranted) VaporSuccess else VaporWarning)
                         StatusChip("OCR", if (dashboard.ocrReady) "已就绪" else "未初始化", VaporTeal)
                         StatusChip("下次执行", formatTime(uiState.dashboard.runStats.nextRunAt), VaporAccent)
+                        StatusChip("智能保活", uiState.dashboard.runStats.smartKeepAliveState, if (uiState.settings.smartKeepAliveEnabled) VaporAccent else VaporMuted)
                     }
                 }
             }
@@ -277,6 +278,16 @@ private fun HomeScreen(
                     PixelOutlineButton(onClick = { viewModel.stop(context) }, modifier = Modifier.fillMaxWidth()) {
                         Text("停止后台保活")
                     }
+                    if (uiState.settings.smartKeepAliveEnabled) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                            PixelPrimaryButton(onClick = {}, modifier = Modifier.weight(1f)) { Text("智能保活中") }
+                            PixelOutlineButton(onClick = { viewModel.stopSmartKeepAlive() }, modifier = Modifier.weight(1f)) { Text("停止智能保活") }
+                        }
+                    } else {
+                        PixelOutlineButton(onClick = { viewModel.startSmartKeepAlive() }, modifier = Modifier.fillMaxWidth()) {
+                            Text("启用智能保活")
+                        }
+                    }
                 }
             }
         }
@@ -291,6 +302,8 @@ private fun HomeScreen(
                     }
                     Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = VaporInk)
                     Text("最近执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}", color = VaporMuted)
+                    Text("最近输入活动: ${formatTime(uiState.dashboard.runStats.lastInputActivityAt)}", color = VaporMuted)
+                    Text("最近 USB 活动: ${formatTime(uiState.dashboard.runStats.lastUsbActivityAt)}", color = VaporMuted)
                 }
             }
         }

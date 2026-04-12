@@ -31,6 +31,7 @@ data class AppSettings(
     val networkRetryDelayMs: Long = AppConfig.networkRetryDelayMs,
     val debug: Boolean = false,
     val cronEnabled: Boolean = true,
+    val smartKeepAliveEnabled: Boolean = false,
 )
 
 data class RunStats(
@@ -41,6 +42,9 @@ data class RunStats(
     val lastRunAt: Long = 0L,
     val nextRunAt: Long = 0L,
     val running: Boolean = false,
+    val smartKeepAliveState: String = "关闭",
+    val lastInputActivityAt: Long = 0L,
+    val lastUsbActivityAt: Long = 0L,
 )
 
 enum class LogLevel {

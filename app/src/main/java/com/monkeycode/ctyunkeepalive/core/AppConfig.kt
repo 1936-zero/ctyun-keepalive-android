@@ -5,6 +5,8 @@ object AppConfig {
     const val desktopTokenHeader = "X-AUTH-TOKEN"
     const val cronExpression = "*/20 * * * *"
     const val fixedScheduleMinutes = 20L
+    const val smartScheduleMinutes = 15L
+    const val smartIdleRestoreMs = 5 * 60 * 1000L
 
     const val appModel = 3
     const val deviceType = 60
