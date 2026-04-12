@@ -9,7 +9,7 @@ object AppConfig {
     const val appModel = 3
     const val deviceType = 60
     const val osType = 15
-    const val appVersion = "3.2.0"
+    const val appVersion = "2.0.6-debug"
     const val version = 103020001
     const val deviceName = "手机客户端"
     const val deviceModel = "Windows NT 10.0; Win64; x64"
