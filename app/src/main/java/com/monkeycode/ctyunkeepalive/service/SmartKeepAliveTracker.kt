@@ -9,12 +9,12 @@ import com.monkeycode.ctyunkeepalive.core.LogLevel
 import com.monkeycode.ctyunkeepalive.data.LogRepository
 import java.io.File
 import java.util.Locale
-import kotlin.math.abs
 
 object SmartKeepAliveTracker {
     private const val SENSOR_FILE = "ctyun-smart-sensor.ts"
     private const val SENSOR_WRITE_THROTTLE_MS = 5_000L
-    private const val SENSOR_SUM_DELTA = 0.0001f
+    private const val STATIC_SUM_MIN = 9.8f
+    private const val STATIC_SUM_MAX = 10f
     private val sensorTypes = listOf(
         Sensor.TYPE_ACCELEROMETER,
         Sensor.TYPE_GYROSCOPE,
@@ -26,7 +26,6 @@ object SmartKeepAliveTracker {
     private var sensorManager: SensorManager? = null
     private var listener: SensorEventListener? = null
     private var lastWriteAt = 0L
-    private var lastAxisSum: Float? = null
 
     @Synchronized
     fun startSensorMonitor(context: Context, logRepository: LogRepository? = null): Int {
@@ -61,7 +60,6 @@ object SmartKeepAliveTracker {
         listener?.let { sensorManager?.unregisterListener(it) }
         listener = null
         sensorManager = null
-        lastAxisSum = null
     }
 
     fun lastSensorActivityAt(context: Context): Long = readTimestamp(File(context.filesDir, SENSOR_FILE))
@@ -79,10 +77,7 @@ object SmartKeepAliveTracker {
 
     private fun hasMeaningfulAxisData(x: Float, y: Float, z: Float): Boolean {
         val axisSum = x + y + z
-        val previousSum = lastAxisSum
-        lastAxisSum = axisSum
-        if (previousSum == null) return true
-        return abs(axisSum - previousSum) >= SENSOR_SUM_DELTA
+        return axisSum !in STATIC_SUM_MIN..STATIC_SUM_MAX
     }
 
     private fun writeTimestamp(file: File, timestamp: Long) {
