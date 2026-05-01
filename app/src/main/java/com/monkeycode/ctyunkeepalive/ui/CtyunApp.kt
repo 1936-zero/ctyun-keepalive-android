@@ -701,7 +701,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("智能保活", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
                 Text("监控来源: 加速度传感器", color = VaporInk)
-                Text("智能保活启用后：每 10 分钟运行一次保活；加速度传感器数据每 5 秒节流记录一次运动日志；使用加速度向量模长判断静止与运动，模长在 9.5 到 10.5 之间判定为静止，不在该区间时判定为运动；若最近 5 分钟内有运动，则跳过本次天翼云手机保活；连续 5 分钟无运动，则立即执行一次保活，然后继续每 10 分钟运行。", color = VaporMuted)
+                Text("智能保活启用后：每 10 分钟运行一次保活；加速度传感器数据每 5 秒节流记录一次运动日志；使用加速度向量模长判断静止与运动，模长在 9.7 到 9.9 之间判定为静止，不在该区间时判定为运动；若最近 5 分钟内有运动，则跳过本次天翼云手机保活；连续 5 分钟无运动，则立即执行一次保活，然后继续每 10 分钟运行。", color = VaporMuted)
             }
         }
         VaporPanel {

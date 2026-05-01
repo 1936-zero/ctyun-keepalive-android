@@ -14,8 +14,8 @@ import kotlin.math.sqrt
 object SmartKeepAliveTracker {
     private const val SENSOR_FILE = "ctyun-smart-sensor.ts"
     private const val SENSOR_WRITE_THROTTLE_MS = 5_000L
-    private const val STATIC_MAGNITUDE_MIN = 9.5f
-    private const val STATIC_MAGNITUDE_MAX = 10.5f
+    private const val STATIC_MAGNITUDE_MIN = 9.7f
+    private const val STATIC_MAGNITUDE_MAX = 9.9f
     private var sensorManager: SensorManager? = null
     private var listener: SensorEventListener? = null
     private var lastWriteAt = 0L
