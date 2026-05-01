@@ -10,12 +10,11 @@ import com.monkeycode.ctyunkeepalive.data.LogRepository
 import java.io.File
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.max
 
 object SmartKeepAliveTracker {
     private const val SENSOR_FILE = "ctyun-smart-sensor.ts"
     private const val SENSOR_WRITE_THROTTLE_MS = 5_000L
-    private const val SENSOR_AXIS_DELTA = 0.02f
+    private const val SENSOR_SUM_DELTA = 0.0001f
     private val sensorTypes = listOf(
         Sensor.TYPE_ACCELEROMETER,
         Sensor.TYPE_GYROSCOPE,
@@ -27,9 +26,7 @@ object SmartKeepAliveTracker {
     private var sensorManager: SensorManager? = null
     private var listener: SensorEventListener? = null
     private var lastWriteAt = 0L
-    private var lastX: Float? = null
-    private var lastY: Float? = null
-    private var lastZ: Float? = null
+    private var lastAxisSum: Float? = null
 
     @Synchronized
     fun startSensorMonitor(context: Context, logRepository: LogRepository? = null): Int {
@@ -64,9 +61,7 @@ object SmartKeepAliveTracker {
         listener?.let { sensorManager?.unregisterListener(it) }
         listener = null
         sensorManager = null
-        lastX = null
-        lastY = null
-        lastZ = null
+        lastAxisSum = null
     }
 
     fun lastSensorActivityAt(context: Context): Long = readTimestamp(File(context.filesDir, SENSOR_FILE))
@@ -78,20 +73,16 @@ object SmartKeepAliveTracker {
         writeTimestamp(File(context.filesDir, SENSOR_FILE), now)
         logRepository?.append(
             LogLevel.DEBUG,
-            "智能保活检测到传感器 xyz 数据: sensor=${sensorName.ifBlank { "unknown" }} x=${axisText(x)} y=${axisText(y)} z=${axisText(z)}",
+            "智能保活检测到传感器 xyz 总和变化: sensor=${sensorName.ifBlank { "unknown" }} x=${axisText(x)} y=${axisText(y)} z=${axisText(z)} sum=${axisText(x + y + z)}",
         )
     }
 
     private fun hasMeaningfulAxisData(x: Float, y: Float, z: Float): Boolean {
-        val previousX = lastX
-        val previousY = lastY
-        val previousZ = lastZ
-        lastX = x
-        lastY = y
-        lastZ = z
-        if (previousX == null || previousY == null || previousZ == null) return true
-        val delta = max(max(abs(x - previousX), abs(y - previousY)), abs(z - previousZ))
-        return delta >= SENSOR_AXIS_DELTA
+        val axisSum = x + y + z
+        val previousSum = lastAxisSum
+        lastAxisSum = axisSum
+        if (previousSum == null) return true
+        return abs(axisSum - previousSum) >= SENSOR_SUM_DELTA
     }
 
     private fun writeTimestamp(file: File, timestamp: Long) {
