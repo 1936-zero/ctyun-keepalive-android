@@ -114,29 +114,22 @@ class RootManager(
     fun isBackgroundKeepAliveEnabled(): Boolean = backgroundKeepAliveFile.exists()
 
     fun startSmartActivityMonitor(): Boolean {
-        val enabled = SmartKeepAliveTracker.isAccessibilityEnabled(appContext)
-        if (enabled) {
-            logRepository.append(LogLevel.INFO, "智能保活活动监控已启用（无障碍 + USB）")
+        val registeredSensors = SmartKeepAliveTracker.startSensorMonitor(appContext)
+        if (registeredSensors > 0) {
+            logRepository.append(LogLevel.INFO, "智能保活传感器监控已启用，已注册 $registeredSensors 个三轴传感器")
         } else {
-            logRepository.append(LogLevel.WARNING, "智能保活未启用无障碍服务，输入活动检测将不可用")
+            logRepository.append(LogLevel.WARNING, "智能保活未发现可用的手机三轴传感器，活动检测将不可用")
         }
-        return enabled
+        return registeredSensors > 0
     }
 
     fun stopSmartActivityMonitor(): Boolean {
-        logRepository.append(LogLevel.INFO, "智能保活活动监控已停止")
+        SmartKeepAliveTracker.stopSensorMonitor()
+        logRepository.append(LogLevel.INFO, "智能保活传感器监控已停止")
         return true
     }
 
-    fun recordUsbActivity() {
-        SmartKeepAliveTracker.recordUsbActivity(appContext)
-    }
-
-    fun lastInputActivityAt(): Long = SmartKeepAliveTracker.lastInputActivityAt(appContext)
-
-    fun lastUsbActivityAt(): Long = SmartKeepAliveTracker.lastUsbActivityAt(appContext)
-
-    fun isSmartAccessibilityEnabled(): Boolean = SmartKeepAliveTracker.isAccessibilityEnabled(appContext)
+    fun lastSensorActivityAt(): Long = SmartKeepAliveTracker.lastSensorActivityAt(appContext)
 
     fun isAppProcessOnline(): Boolean {
         val manager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false

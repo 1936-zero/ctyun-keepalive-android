@@ -136,9 +136,6 @@ class KeepAliveEngine(
         scheduleIfNeeded(updated)
         logRepository.append(LogLevel.INFO, "智能保活开启")
         logRepository.append(LogLevel.INFO, "当前 Cron 已切换到 15 分钟")
-        if (!rootManager.isSmartAccessibilityEnabled()) {
-            logRepository.append(LogLevel.WARNING, "请在系统设置中启用无障碍服务，才能检测输入活动")
-        }
     }
 
     fun stopSmartKeepAlive() {
@@ -182,16 +179,15 @@ class KeepAliveEngine(
                             currentProgress = if (state == "已暂停") "智能保活因活动暂停" else "智能保活等待恢复",
                             nextRunAt = resumeAt,
                             smartKeepAliveState = state,
-                            lastInputActivityAt = rootManager.lastInputActivityAt(),
-                            lastUsbActivityAt = rootManager.lastUsbActivityAt(),
+                            lastSensorActivityAt = rootManager.lastSensorActivityAt(),
                         )
                     )
                     scheduler.scheduleAt(resumeAt, appContext)
-                    logRepository.append(LogLevel.INFO, "智能保活因活动暂停")
+                    logRepository.append(LogLevel.INFO, "智能保活检测到手机传感器 xyz 数据，暂停天翼云手机保活任务")
                     return@launch
                 }
                 if (settingsRepository.stats().value.smartKeepAliveState != "监控中") {
-                    logRepository.append(LogLevel.INFO, "智能保活 5分钟无活动恢复")
+                    logRepository.append(LogLevel.INFO, "智能保活 5分钟无传感器数据，恢复常规保活")
                 }
             }
             val accounts = accountRepository.accounts().value
@@ -262,14 +258,6 @@ class KeepAliveEngine(
         refreshSmartKeepAliveState(logTransition = false)
         scheduleIfNeeded(settings)
         logRepository.append(LogLevel.INFO, "参数配置已保存")
-    }
-
-    fun recordUsbActivity(source: String) {
-        rootManager.recordUsbActivity()
-        refreshSmartKeepAliveState(logTransition = true)
-        if (settingsRepository.settings().value.smartKeepAliveEnabled) {
-            logRepository.append(LogLevel.INFO, "智能保活检测到活动事件: ${source.ifBlank { "USB" }}")
-        }
     }
 
     fun clearAllData() {
@@ -713,15 +701,14 @@ class KeepAliveEngine(
         val current = settingsRepository.stats().value
         val updated = current.copy(
             smartKeepAliveState = computeSmartState(settings, current, System.currentTimeMillis()),
-            lastInputActivityAt = rootManager.lastInputActivityAt(),
-            lastUsbActivityAt = rootManager.lastUsbActivityAt(),
+            lastSensorActivityAt = rootManager.lastSensorActivityAt(),
         )
         if (updated != current) {
             if (logTransition && current.smartKeepAliveState != updated.smartKeepAliveState) {
                 when (updated.smartKeepAliveState) {
-                    "已暂停" -> logRepository.append(LogLevel.INFO, "智能保活因活动暂停")
-                    "等待恢复" -> logRepository.append(LogLevel.INFO, "智能保活等待恢复")
-                    "监控中" -> logRepository.append(LogLevel.INFO, "智能保活 5分钟无活动恢复")
+                    "已暂停" -> logRepository.append(LogLevel.INFO, "智能保活检测到手机传感器 xyz 数据，暂停天翼云手机保活任务")
+                    "等待恢复" -> logRepository.append(LogLevel.INFO, "智能保活等待传感器静默满 5 分钟")
+                    "监控中" -> logRepository.append(LogLevel.INFO, "智能保活 5分钟无传感器数据，恢复常规保活")
                 }
             }
             updateStats(updated)
@@ -741,7 +728,7 @@ class KeepAliveEngine(
     }
 
     private fun latestSmartActivityAt(now: Long): Long {
-        val latest = maxOf(rootManager.lastInputActivityAt(), rootManager.lastUsbActivityAt())
+        val latest = rootManager.lastSensorActivityAt()
         return if (latest in 1..now) latest else 0L
     }
 

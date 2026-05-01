@@ -43,8 +43,7 @@ data class RunStats(
     val nextRunAt: Long = 0L,
     val running: Boolean = false,
     val smartKeepAliveState: String = "关闭",
-    val lastInputActivityAt: Long = 0L,
-    val lastUsbActivityAt: Long = 0L,
+    val lastSensorActivityAt: Long = 0L,
 )
 
 enum class LogLevel {

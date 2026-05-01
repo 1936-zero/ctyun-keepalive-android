@@ -1,35 +1,95 @@
 package com.monkeycode.ctyunkeepalive.service
 
-import android.content.ComponentName
 import android.content.Context
-import android.provider.Settings
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import java.io.File
+import kotlin.math.abs
+import kotlin.math.max
 
 object SmartKeepAliveTracker {
-    private const val INPUT_FILE = "ctyun-smart-input.ts"
-    private const val USB_FILE = "ctyun-smart-usb.ts"
+    private const val SENSOR_FILE = "ctyun-smart-sensor.ts"
+    private const val SENSOR_WRITE_THROTTLE_MS = 5_000L
+    private const val SENSOR_AXIS_DELTA = 0.02f
+    private val sensorTypes = listOf(
+        Sensor.TYPE_ACCELEROMETER,
+        Sensor.TYPE_GYROSCOPE,
+        Sensor.TYPE_MAGNETIC_FIELD,
+        Sensor.TYPE_GRAVITY,
+        Sensor.TYPE_LINEAR_ACCELERATION,
+        Sensor.TYPE_ROTATION_VECTOR,
+    )
+    private var sensorManager: SensorManager? = null
+    private var listener: SensorEventListener? = null
+    private var lastWriteAt = 0L
+    private var lastX: Float? = null
+    private var lastY: Float? = null
+    private var lastZ: Float? = null
 
-    fun recordInputActivity(context: Context) {
-        writeTimestamp(File(context.filesDir, INPUT_FILE))
+    @Synchronized
+    fun startSensorMonitor(context: Context): Int {
+        if (listener != null) return sensorManager?.let { manager ->
+            sensorTypes.count { manager.getDefaultSensor(it) != null }
+        } ?: 0
+        val appContext = context.applicationContext
+        val manager = appContext.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return 0
+        sensorManager = manager
+        val sensorListener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                val values = event.values
+                if (values.size < 3) return
+                val x = values[0]
+                val y = values[1]
+                val z = values[2]
+                if (!x.isFinite() || !y.isFinite() || !z.isFinite()) return
+                if (!hasMeaningfulAxisData(x, y, z)) return
+                recordSensorActivity(appContext)
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+        }
+        listener = sensorListener
+        return sensorTypes.mapNotNull { manager.getDefaultSensor(it) }.distinctBy { it.type }.count { sensor ->
+            manager.registerListener(sensorListener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+        }
     }
 
-    fun recordUsbActivity(context: Context) {
-        writeTimestamp(File(context.filesDir, USB_FILE))
+    @Synchronized
+    fun stopSensorMonitor() {
+        listener?.let { sensorManager?.unregisterListener(it) }
+        listener = null
+        sensorManager = null
+        lastX = null
+        lastY = null
+        lastZ = null
     }
 
-    fun lastInputActivityAt(context: Context): Long = readTimestamp(File(context.filesDir, INPUT_FILE))
+    fun lastSensorActivityAt(context: Context): Long = readTimestamp(File(context.filesDir, SENSOR_FILE))
 
-    fun lastUsbActivityAt(context: Context): Long = readTimestamp(File(context.filesDir, USB_FILE))
-
-    fun isAccessibilityEnabled(context: Context): Boolean {
-        val service = ComponentName(context, SmartKeepAliveAccessibilityService::class.java).flattenToString()
-        val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
-        return enabled.split(':').any { it.equals(service, ignoreCase = true) }
+    private fun recordSensorActivity(context: Context) {
+        val now = System.currentTimeMillis()
+        if (now - lastWriteAt < SENSOR_WRITE_THROTTLE_MS) return
+        lastWriteAt = now
+        writeTimestamp(File(context.filesDir, SENSOR_FILE), now)
     }
 
-    private fun writeTimestamp(file: File) {
+    private fun hasMeaningfulAxisData(x: Float, y: Float, z: Float): Boolean {
+        val previousX = lastX
+        val previousY = lastY
+        val previousZ = lastZ
+        lastX = x
+        lastY = y
+        lastZ = z
+        if (previousX == null || previousY == null || previousZ == null) return true
+        val delta = max(max(abs(x - previousX), abs(y - previousY)), abs(z - previousZ))
+        return delta >= SENSOR_AXIS_DELTA
+    }
+
+    private fun writeTimestamp(file: File, timestamp: Long) {
         file.parentFile?.mkdirs()
-        file.writeText(System.currentTimeMillis().toString())
+        file.writeText(timestamp.toString())
     }
 
     private fun readTimestamp(file: File): Long {

@@ -207,7 +207,7 @@ private fun SplashScreen(dashboard: com.monkeycode.ctyunkeepalive.core.Dashboard
         VaporPanel(Modifier.padding(24.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("天翼云手机保活", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = VaporInk)
-                Text("Version 2.0.6-debug", color = VaporAccent)
+                Text("Version 3.0.6", color = VaporAccent)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatusChip("ROOT", if (dashboard.rootGranted) "已授权" else "检测中", if (dashboard.rootGranted) VaporSuccess else VaporWarning)
                     StatusChip("PY", if (dashboard.pythonReady) "已加载" else "加载中", VaporAccent)
@@ -302,8 +302,7 @@ private fun HomeScreen(
                     }
                     Text("当前进度: ${uiState.dashboard.runStats.currentProgress}", color = VaporInk)
                     Text("最近执行: ${formatTime(uiState.dashboard.runStats.lastRunAt)}", color = VaporMuted)
-                    Text("最近输入活动: ${formatTime(uiState.dashboard.runStats.lastInputActivityAt)}", color = VaporMuted)
-                    Text("最近 USB 活动: ${formatTime(uiState.dashboard.runStats.lastUsbActivityAt)}", color = VaporMuted)
+                    Text("最近传感器 xyz 数据: ${formatTime(uiState.dashboard.runStats.lastSensorActivityAt)}", color = VaporMuted)
                 }
             }
         }
@@ -656,7 +655,6 @@ private fun ConfigScreen(settings: AppSettings, padding: PaddingValues, viewMode
 @Composable
 private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel: MainViewModel) {
     val context = LocalContext.current
-    val smartAccessibilityEnabled = viewModel.isSmartAccessibilityEnabled()
     var confirmExit by remember { mutableStateOf(false) }
     if (confirmExit) {
         AlertDialog(
@@ -702,25 +700,14 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
         VaporPanel {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("智能保活", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
-                Text("无障碍状态: ${if (smartAccessibilityEnabled) "已开启" else "未开启"}", color = VaporInk)
-                Text("智能保活启用后：检测到无障碍输入活动或 USB/供电活动时暂停天翼云手机保活任务；连续 5 分钟无活动后恢复，并将 Cron 切换为每 15 分钟执行一次。", color = VaporMuted)
-                PixelOutlineButton(
-                    onClick = {
-                        val opened = viewModel.openAccessibilitySettings(context)
-                        if (!opened) {
-                            Toast.makeText(context, "无法打开无障碍设置，请手动前往系统设置开启", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("打开无障碍设置")
-                }
+                Text("监控来源: 手机三轴传感器 xyz 数据", color = VaporInk)
+                Text("智能保活启用后：只要检测到手机传感器 xyz 数据，就暂停天翼云手机保活任务；连续 5 分钟无传感器数据后恢复常规保活，并将 Cron 切换为每 15 分钟执行一次。", color = VaporMuted)
             }
         }
         VaporPanel {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("关于应用", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
-                Text("版本: 2.0.6-debug", color = VaporInk)
+                Text("版本: 3.0.6", color = VaporInk)
                 Text("技术栈: Kotlin + Compose + MMKV + OkHttp + Chaquopy + ddddocr", color = VaporInk)
                 Text("运行方式: 安装后授权 ROOT，先启动后台保活，再按需执行立即测试", color = VaporMuted)
             }

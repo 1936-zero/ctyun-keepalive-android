@@ -40,20 +40,6 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <service
-            android:name=".service.SmartKeepAliveAccessibilityService"
-            android:enabled="true"
-            android:exported="false"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/smart_keepalive_accessibility_service" />
-        </service>
-
         <receiver
             android:name=".service.BootReceiver"
             android:enabled="true"
@@ -76,17 +62,8 @@
 
         <receiver
             android:name=".service.SmartKeepAliveEventReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
-                <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />
-                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
-                <action android:name="android.hardware.usb.action.USB_ACCESSORY_DETACHED" />
-                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
-                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
-            </intent-filter>
-        </receiver>
+            android:enabled="false"
+            android:exported="false" />
     </application>
 
 </manifest>

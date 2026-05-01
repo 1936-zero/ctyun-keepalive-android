@@ -2,8 +2,6 @@ package com.monkeycode.ctyunkeepalive.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.content.Intent
-import android.provider.Settings
 import com.monkeycode.ctyunkeepalive.app.AppContainer
 import com.monkeycode.ctyunkeepalive.core.AppSettings
 import com.monkeycode.ctyunkeepalive.core.DashboardState
@@ -66,15 +64,6 @@ class MainViewModel(
     fun hasLogPermissions(context: android.content.Context): Boolean = container.logFileStore.hasRequiredPermissions(context)
 
     fun openLogFolder(context: android.content.Context): Boolean = container.logFileStore.openLogFolder(context)
-
-    fun isSmartAccessibilityEnabled(): Boolean = container.rootManager.isSmartAccessibilityEnabled()
-
-    fun openAccessibilitySettings(context: android.content.Context): Boolean {
-        return runCatching {
-            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            true
-        }.getOrDefault(false)
-    }
 
     fun addAccount(username: String, password: String, deviceCode: String, useCustomDeviceCode: Boolean) =
         container.keepAliveEngine.addAccount(username, password, deviceCode, useCustomDeviceCode)
