@@ -198,4 +198,4 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 - Context: 用户要求应用里显示的版本号与 GitHub Release tag 保持一致
 - Instructions:
   - 应用内展示版本号、`build.gradle.kts` 的 `versionName`，以及相关版本常量应与当前发布的 Release tag 对齐。
-  - 本次需要对齐到 `2.0.6`。
+  - 本次需要对齐到 `2.0.7`。

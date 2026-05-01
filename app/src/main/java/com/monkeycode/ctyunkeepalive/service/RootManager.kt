@@ -114,7 +114,7 @@ class RootManager(
     fun isBackgroundKeepAliveEnabled(): Boolean = backgroundKeepAliveFile.exists()
 
     fun startSmartActivityMonitor(): Boolean {
-        val registeredSensors = SmartKeepAliveTracker.startSensorMonitor(appContext)
+        val registeredSensors = SmartKeepAliveTracker.startSensorMonitor(appContext, logRepository)
         if (registeredSensors > 0) {
             logRepository.append(LogLevel.INFO, "智能保活传感器监控已启用，已注册 $registeredSensors 个三轴传感器")
         } else {

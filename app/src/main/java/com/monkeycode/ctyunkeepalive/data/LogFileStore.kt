@@ -115,24 +115,14 @@ class LogFileStore(
     private fun appendWithMediaStore(text: String, timestamp: Long) {
         val resolver = appContext.contentResolver
         val fileName = dailyFileName(timestamp)
-        val existingUri = resolver.query(
-            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
-            arrayOf(MediaStore.MediaColumns._ID),
-            "${MediaStore.MediaColumns.RELATIVE_PATH}=? AND ${MediaStore.MediaColumns.DISPLAY_NAME}=?",
-            arrayOf(relativeDirectory, fileName),
-            null,
-        )?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use null
-            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
-            android.net.Uri.withAppendedPath(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), id.toString())
-        }
+        val existingUri = queryLogFileUri(fileName)
 
         val targetUri = existingUri ?: resolver.insert(
             MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
             ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, relativeDirectory)
+                put(MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaColumns.MIME_TYPE, "text/plain")
+                put(MediaColumns.RELATIVE_PATH, relativeDirectory)
             },
         )
 
@@ -161,14 +151,18 @@ class LogFileStore(
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val ids = resolver.query(
             collection,
-            arrayOf(MediaColumns._ID),
-            "${MediaColumns.RELATIVE_PATH}=?",
-            arrayOf(relativeDirectory),
+            arrayOf(MediaColumns._ID, MediaColumns.RELATIVE_PATH, MediaColumns.DISPLAY_NAME),
+            logFolderSelection(),
+            logFolderSelectionArgs(),
             null,
         )?.use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
-                    add(cursor.getLong(cursor.getColumnIndexOrThrow(MediaColumns._ID)))
+                    val relativePath = cursor.getString(cursor.getColumnIndexOrThrow(MediaColumns.RELATIVE_PATH)).orEmpty()
+                    val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaColumns.DISPLAY_NAME)).orEmpty()
+                    if (isManagedLogFile(relativePath, displayName)) {
+                        add(cursor.getLong(cursor.getColumnIndexOrThrow(MediaColumns._ID)))
+                    }
                 }
             }
         }.orEmpty()
@@ -212,18 +206,43 @@ class LogFileStore(
     private fun readMediaStoreLogLines(): List<String> {
         val resolver = appContext.contentResolver
         val fileName = dailyFileName(System.currentTimeMillis())
-        val uri = resolver.query(
-            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
-            arrayOf(MediaColumns._ID),
-            "${MediaColumns.RELATIVE_PATH}=? AND ${MediaColumns.DISPLAY_NAME}=?",
-            arrayOf(relativeDirectory, fileName),
-            null,
-        )?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use null
-            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaColumns._ID))
-            android.net.Uri.withAppendedPath(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), id.toString())
-        } ?: return emptyList()
+        val uri = queryLogFileUri(fileName) ?: return emptyList()
         return resolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readLines() }.orEmpty()
+    }
+
+    private fun queryLogFileUri(fileName: String): android.net.Uri? {
+        val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        return appContext.contentResolver.query(
+            collection,
+            arrayOf(MediaColumns._ID, MediaColumns.RELATIVE_PATH, MediaColumns.DISPLAY_NAME, MediaColumns.DATE_MODIFIED),
+            "${MediaColumns.DISPLAY_NAME}=? AND ${logFolderSelection()}",
+            arrayOf(fileName, *logFolderSelectionArgs()),
+            "${MediaColumns.DATE_MODIFIED} DESC",
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val relativePath = cursor.getString(cursor.getColumnIndexOrThrow(MediaColumns.RELATIVE_PATH)).orEmpty()
+                val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaColumns.DISPLAY_NAME)).orEmpty()
+                if (isManagedLogFile(relativePath, displayName)) {
+                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaColumns._ID))
+                    return@use android.net.Uri.withAppendedPath(collection, id.toString())
+                }
+            }
+            null
+        }
+    }
+
+    private fun logFolderSelection(): String {
+        return "(${MediaColumns.RELATIVE_PATH}=? OR ${MediaColumns.RELATIVE_PATH}=? OR ${MediaColumns.RELATIVE_PATH} LIKE ?)"
+    }
+
+    private fun logFolderSelectionArgs(): Array<String> {
+        val withoutTrailingSlash = relativeDirectory.trimEnd('/')
+        return arrayOf(relativeDirectory, withoutTrailingSlash, "%/$folderName/%")
+    }
+
+    private fun isManagedLogFile(relativePath: String, displayName: String): Boolean {
+        val normalizedPath = relativePath.trimEnd('/')
+        return normalizedPath.endsWith("/$folderName") && displayName.endsWith(".log")
     }
 
     private fun buildInitialUri(): android.net.Uri {

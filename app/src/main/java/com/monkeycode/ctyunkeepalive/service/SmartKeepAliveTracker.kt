@@ -5,7 +5,10 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import com.monkeycode.ctyunkeepalive.core.LogLevel
+import com.monkeycode.ctyunkeepalive.data.LogRepository
 import java.io.File
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -29,7 +32,7 @@ object SmartKeepAliveTracker {
     private var lastZ: Float? = null
 
     @Synchronized
-    fun startSensorMonitor(context: Context): Int {
+    fun startSensorMonitor(context: Context, logRepository: LogRepository? = null): Int {
         if (listener != null) return sensorManager?.let { manager ->
             sensorTypes.count { manager.getDefaultSensor(it) != null }
         } ?: 0
@@ -45,7 +48,7 @@ object SmartKeepAliveTracker {
                 val z = values[2]
                 if (!x.isFinite() || !y.isFinite() || !z.isFinite()) return
                 if (!hasMeaningfulAxisData(x, y, z)) return
-                recordSensorActivity(appContext)
+                recordSensorActivity(appContext, event.sensor?.name.orEmpty(), x, y, z, logRepository)
             }
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -68,11 +71,15 @@ object SmartKeepAliveTracker {
 
     fun lastSensorActivityAt(context: Context): Long = readTimestamp(File(context.filesDir, SENSOR_FILE))
 
-    private fun recordSensorActivity(context: Context) {
+    private fun recordSensorActivity(context: Context, sensorName: String, x: Float, y: Float, z: Float, logRepository: LogRepository?) {
         val now = System.currentTimeMillis()
         if (now - lastWriteAt < SENSOR_WRITE_THROTTLE_MS) return
         lastWriteAt = now
         writeTimestamp(File(context.filesDir, SENSOR_FILE), now)
+        logRepository?.append(
+            LogLevel.DEBUG,
+            "智能保活检测到传感器 xyz 数据: sensor=${sensorName.ifBlank { "unknown" }} x=${axisText(x)} y=${axisText(y)} z=${axisText(z)}",
+        )
     }
 
     private fun hasMeaningfulAxisData(x: Float, y: Float, z: Float): Boolean {
@@ -95,4 +102,6 @@ object SmartKeepAliveTracker {
     private fun readTimestamp(file: File): Long {
         return file.takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull() ?: 0L
     }
+
+    private fun axisText(value: Float): String = String.format(Locale.US, "%.4f", value)
 }
