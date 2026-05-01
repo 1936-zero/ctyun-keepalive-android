@@ -19,6 +19,7 @@ object SmartKeepAliveTracker {
     private var sensorManager: SensorManager? = null
     private var listener: SensorEventListener? = null
     private var lastWriteAt = 0L
+    private var lastRawLogAt = 0L
 
     @Synchronized
     fun startSensorMonitor(context: Context, logRepository: LogRepository? = null): Int {
@@ -36,6 +37,14 @@ object SmartKeepAliveTracker {
                 val y = values[1]
                 val z = values[2]
                 if (!x.isFinite() || !y.isFinite() || !z.isFinite()) return
+                val now = System.currentTimeMillis()
+                if (now - lastRawLogAt >= SENSOR_WRITE_THROTTLE_MS) {
+                    lastRawLogAt = now
+                    logRepository?.append(
+                        LogLevel.DEBUG,
+                        "传感器原始: x=${axisText(x)} y=${axisText(y)} z=${axisText(z)} magnitude=${axisText(vectorMagnitude(x, y, z))}",
+                    )
+                }
                 if (!hasMeaningfulAxisData(x, y, z)) return
                 recordSensorActivity(appContext, event.sensor?.name.orEmpty(), x, y, z, logRepository)
             }
@@ -43,7 +52,7 @@ object SmartKeepAliveTracker {
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
         listener = sensorListener
-        return if (manager.registerListener(sensorListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)) 1 else 0
+        return if (manager.registerListener(sensorListener, accelerometer, SensorManager.SENSOR_DELAY_GAME)) 1 else 0
     }
 
     @Synchronized
