@@ -72,6 +72,8 @@ class KeepAliveEngine(
     private val manualRunCompleted = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     private var runningJob: Job? = null
     private var smartMonitorJob: Job? = null
+    private var smartMonitorStartedAt = 0L
+    private var smartIdleRunForBaseAt = 0L
 
     init {
         scope.launch {
@@ -135,7 +137,7 @@ class KeepAliveEngine(
         updateStats(settingsRepository.stats().value.copy(currentProgress = "智能保活中"))
         scheduleIfNeeded(updated)
         logRepository.append(LogLevel.INFO, "智能保活开启")
-        logRepository.append(LogLevel.INFO, "当前 Cron 已切换到 15 分钟")
+        logRepository.append(LogLevel.INFO, "当前智能保活已切换为每 10 分钟运行一次")
     }
 
     fun stopSmartKeepAlive() {
@@ -183,11 +185,11 @@ class KeepAliveEngine(
                         )
                     )
                     scheduler.scheduleAt(resumeAt, appContext)
-                    logRepository.append(LogLevel.INFO, "智能保活检测到手机传感器 xyz 数据，暂停天翼云手机保活任务")
+                    logRepository.append(LogLevel.INFO, "智能保活检测到手机最近 5 分钟内有传感器 xyz 运动数据，跳过本次天翼云手机保活")
                     return@launch
                 }
                 if (settingsRepository.stats().value.smartKeepAliveState != "监控中") {
-                    logRepository.append(LogLevel.INFO, "智能保活 5分钟无传感器数据，恢复常规保活")
+                    logRepository.append(LogLevel.INFO, "智能保活连续 5 分钟未检测到运动，执行本次保活任务")
                 }
             }
             val accounts = accountRepository.accounts().value
@@ -683,14 +685,18 @@ class KeepAliveEngine(
         if (!settings.smartKeepAliveEnabled) {
             smartMonitorJob?.cancel()
             smartMonitorJob = null
+            smartMonitorStartedAt = 0L
+            smartIdleRunForBaseAt = 0L
             rootManager.stopSmartActivityMonitor()
             return
         }
         rootManager.startSmartActivityMonitor()
+        if (smartMonitorStartedAt <= 0L) smartMonitorStartedAt = System.currentTimeMillis()
         if (smartMonitorJob?.isActive == true) return
         smartMonitorJob = scope.launch {
             while (true) {
                 refreshSmartKeepAliveState(logTransition = false)
+                triggerSmartIdleRunIfNeeded()
                 delay(5_000L)
             }
         }
@@ -706,13 +712,29 @@ class KeepAliveEngine(
         if (updated != current) {
             if (logTransition && current.smartKeepAliveState != updated.smartKeepAliveState) {
                 when (updated.smartKeepAliveState) {
-                    "已暂停" -> logRepository.append(LogLevel.INFO, "智能保活检测到手机传感器 xyz 数据，暂停天翼云手机保活任务")
+                    "已暂停" -> logRepository.append(LogLevel.INFO, "智能保活检测到手机最近 5 分钟内有传感器 xyz 运动数据，跳过本次天翼云手机保活")
                     "等待恢复" -> logRepository.append(LogLevel.INFO, "智能保活等待传感器静默满 5 分钟")
-                    "监控中" -> logRepository.append(LogLevel.INFO, "智能保活 5分钟无传感器数据，恢复常规保活")
+                    "监控中" -> logRepository.append(LogLevel.INFO, "智能保活连续 5 分钟未检测到运动，恢复执行保活任务")
                 }
             }
             updateStats(updated)
         }
+    }
+
+    private fun triggerSmartIdleRunIfNeeded() {
+        val settings = settingsRepository.settings().value
+        if (!settings.smartKeepAliveEnabled || !settings.cronEnabled) return
+        if (!rootManager.isBackgroundKeepAliveEnabled()) return
+        if (settingsRepository.stats().value.currentProgress == STOPPED_PROGRESS) return
+        if (runningJob?.isActive == true) return
+        val now = System.currentTimeMillis()
+        val latest = latestSmartActivityAt(now)
+        val idleBaseAt = if (latest > 0L) latest else smartMonitorStartedAt
+        if (idleBaseAt <= 0L || now - idleBaseAt < AppConfig.smartIdleRestoreMs) return
+        if (smartIdleRunForBaseAt == idleBaseAt) return
+        smartIdleRunForBaseAt = idleBaseAt
+        logRepository.append(LogLevel.INFO, "智能保活连续 5 分钟未检测到运动，立即执行一次保活任务")
+        startNow(RunTrigger.SCHEDULED)
     }
 
     private fun computeSmartState(settings: AppSettings, stats: RunStats, now: Long): String {

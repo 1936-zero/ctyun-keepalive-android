@@ -701,7 +701,7 @@ private fun SystemScreen(uiState: MainUiState, padding: PaddingValues, viewModel
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("智能保活", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = VaporInk)
                 Text("监控来源: 手机三轴传感器 xyz 数据", color = VaporInk)
-                Text("智能保活启用后：只要检测到手机传感器 xyz 数据，就暂停天翼云手机保活任务；连续 5 分钟无传感器数据后恢复常规保活，并将 Cron 切换为每 15 分钟执行一次。", color = VaporMuted)
+                Text("智能保活启用后：每 10 分钟运行一次保活；传感器 xyz 运动数据每 5 秒检测一次；若最近 5 分钟内有运动，则跳过本次天翼云手机保活；连续 5 分钟无运动，则立即执行一次保活，然后继续每 10 分钟运行。", color = VaporMuted)
             }
         }
         VaporPanel {
