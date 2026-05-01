@@ -231,6 +231,9 @@ class KeepAliveEngine(
             if (trigger == RunTrigger.MANUAL) {
                 manualRunCompleted.tryEmit(System.currentTimeMillis())
             }
+            if (standby) {
+                scheduler.schedule(appContext, currentScheduleMinutes(settings) * 60_000L)
+            }
         }
     }
 
