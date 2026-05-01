@@ -9,34 +9,27 @@ import com.monkeycode.ctyunkeepalive.core.LogLevel
 import com.monkeycode.ctyunkeepalive.data.LogRepository
 import java.io.File
 import java.util.Locale
+import kotlin.math.sqrt
 
 object SmartKeepAliveTracker {
     private const val SENSOR_FILE = "ctyun-smart-sensor.ts"
     private const val SENSOR_WRITE_THROTTLE_MS = 5_000L
-    private const val STATIC_SUM_MIN = 9.8f
-    private const val STATIC_SUM_MAX = 10f
-    private val sensorTypes = listOf(
-        Sensor.TYPE_ACCELEROMETER,
-        Sensor.TYPE_GYROSCOPE,
-        Sensor.TYPE_MAGNETIC_FIELD,
-        Sensor.TYPE_GRAVITY,
-        Sensor.TYPE_LINEAR_ACCELERATION,
-        Sensor.TYPE_ROTATION_VECTOR,
-    )
+    private const val STATIC_MAGNITUDE_MIN = 9.5f
+    private const val STATIC_MAGNITUDE_MAX = 10.5f
     private var sensorManager: SensorManager? = null
     private var listener: SensorEventListener? = null
     private var lastWriteAt = 0L
 
     @Synchronized
     fun startSensorMonitor(context: Context, logRepository: LogRepository? = null): Int {
-        if (listener != null) return sensorManager?.let { manager ->
-            sensorTypes.count { manager.getDefaultSensor(it) != null }
-        } ?: 0
+        if (listener != null) return sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let { 1 } ?: 0
         val appContext = context.applicationContext
         val manager = appContext.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return 0
+        val accelerometer = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ?: return 0
         sensorManager = manager
         val sensorListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
+                if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
                 val values = event.values
                 if (values.size < 3) return
                 val x = values[0]
@@ -50,9 +43,7 @@ object SmartKeepAliveTracker {
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
         listener = sensorListener
-        return sensorTypes.mapNotNull { manager.getDefaultSensor(it) }.distinctBy { it.type }.count { sensor ->
-            manager.registerListener(sensorListener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
-        }
+        return if (manager.registerListener(sensorListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)) 1 else 0
     }
 
     @Synchronized
@@ -71,13 +62,17 @@ object SmartKeepAliveTracker {
         writeTimestamp(File(context.filesDir, SENSOR_FILE), now)
         logRepository?.append(
             LogLevel.DEBUG,
-            "智能保活检测到传感器 xyz 总和变化: sensor=${sensorName.ifBlank { "unknown" }} x=${axisText(x)} y=${axisText(y)} z=${axisText(z)} sum=${axisText(x + y + z)}",
+            "智能保活检测到加速度传感器运动: sensor=${sensorName.ifBlank { "unknown" }} x=${axisText(x)} y=${axisText(y)} z=${axisText(z)} magnitude=${axisText(vectorMagnitude(x, y, z))}",
         )
     }
 
     private fun hasMeaningfulAxisData(x: Float, y: Float, z: Float): Boolean {
-        val axisSum = x + y + z
-        return axisSum !in STATIC_SUM_MIN..STATIC_SUM_MAX
+        val magnitude = vectorMagnitude(x, y, z)
+        return magnitude !in STATIC_MAGNITUDE_MIN..STATIC_MAGNITUDE_MAX
+    }
+
+    private fun vectorMagnitude(x: Float, y: Float, z: Float): Float {
+        return sqrt(x * x + y * y + z * z)
     }
 
     private fun writeTimestamp(file: File, timestamp: Long) {
